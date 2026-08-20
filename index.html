@@ -63,9 +63,9 @@
         <div>
             <h1 class="text-3xl font-bold text-white tracking-tight glow-text flex items-center gap-2">
                 <i class="ph-fill ph-chart-polar text-accentBlue"></i>
-                RELATÓRIO CURVA ABC – GRUPO RFK
+                RELATÓRIO PCP – GRUPO RFK
             </h1>
-            <p class="text-gray-400 text-sm mt-1">Análise Executiva de Compras e Gestão de Insumos</p>
+            <p class="text-gray-400 text-sm mt-1"ANÁLISE EXECUTIVA DE COMPRAS E GESTÃO DE INSUMOS</p>
         </div>
         
         <div id="statusCarregamento" class="flex items-center gap-3 bg-gray-800/50 border border-gray-700 px-5 py-2.5 rounded-xl font-medium text-sm text-gray-300">
@@ -237,7 +237,7 @@
                     // Atualiza o Status na Tela de "Carregando" para "Concluído"
                     document.getElementById('loaderIcon').style.display = 'none';
                     const statusText = document.getElementById('statusTexto');
-                    statusText.innerHTML = '<i class="ph-fill ph-check-circle text-accentGreen text-lg mr-1"></i> Sincronizado (' + results.data.length + ' linhas)';
+                    statusText.innerHTML = '<i class="ph-fill ph-check-circle text-accentGreen text-lg mr-1"></i> ATUALIZADO (' + results.data.length + ' linhas)';
                     statusText.classList.replace('text-gray-300', 'text-accentGreen');
 
                     processarDados(results.data);
