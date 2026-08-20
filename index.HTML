@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Curva ABC - Grupo RFK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        darkBg: '#0a0a0f', cardBg: '#1a1a24',
+                        accentGreen: '#00e676', accentBlue: '#2979ff',
+                        accentOrange: '#ff9100', accentPurple: '#b388ff'
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body { background-color: #0a0a0f; color: #e2e8f0; }
+        .card { 
+            background-color: #1a1a24; 
+            border: 1px solid rgba(255,255,255,0.06); 
+            border-radius: 16px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(41, 121, 255, 0.08); }
+        .glow-text { text-shadow: 0 0 12px rgba(41, 121, 255, 0.4); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a0f; }
+        ::-webkit-scrollbar-thumb { background: #334; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #556; }
+        
+        .search-input {
+            background-color: #0a0a0f; border: 1px solid #374151; color: white;
+            padding: 8px 16px 8px 40px; border-radius: 8px; font-size: 14px;
+            outline: none; transition: border-color 0.2s; width: 100%; max-width: 300px;
+        }
+        .search-input:focus { border-color: #2979ff; }
+        
+        /* Spinner de carregamento */
+        .loader {
+            border: 3px solid rgba(41, 121, 255, 0.2); border-top: 3px solid #2979ff;
+            border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 font-sans antialiased">
+
+    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-tight glow-text flex items-center gap-2">
+                <i class="ph-fill ph-chart-polar text-accentBlue"></i>
+                RELATÓRIO CURVA ABC – GRUPO RFK
+            </h1>
+            <p class="text-gray-400 text-sm mt-1">Análise Executiva de Compras e Gestão de Insumos</p>
+        </div>
+        
+        <div id="statusCarregamento" class="flex items-center gap-3 bg-gray-800/50 border border-gray-700 px-5 py-2.5 rounded-xl font-medium text-sm text-gray-300">
+            <div class="loader" id="loaderIcon"></div>
+            <span id="statusTexto">Sincronizando dados.csv...</span>
+        </div>
+    </header>
+
+    <section class="card p-5 mb-8 flex flex-wrap gap-4 items-end border border-gray-800">
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Ano</label>
+            <select id="filterAno" class="w-full bg-[#0a0a0f] border border-gray-700 text-white text-sm rounded-lg p-2.5 focus:border-accentBlue outline-none transition-colors"></select>
+        </div>
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Filial</label>
+            <select id="filterFilial" class="w-full bg-[#0a0a0f] border border-gray-700 text-white text-sm rounded-lg p-2.5 focus:border-accentBlue outline-none transition-colors"></select>
+        </div>
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Grupo</label>
+            <select id="filterGrupo" class="w-full bg-[#0a0a0f] border border-gray-700 text-white text-sm rounded-lg p-2.5 focus:border-accentBlue outline-none transition-colors"></select>
+        </div>
+        <div class="flex-1 min-w-[140px]">
+            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Classe</label>
+            <select id="filterClasse" class="w-full bg-[#0a0a0f] border border-gray-700 text-white text-sm rounded-lg p-2.5 focus:border-accentBlue outline-none transition-colors"></select>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="card p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-accentBlue/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            <p class="text-sm font-semibold text-gray-400 mb-1">Gasto Total (Atual)</p>
+            <h2 id="kpiTotal" class="text-3xl font-bold text-white mb-2">R$ 0,00</h2>
+            <div class="flex items-center text-sm mt-3">
+                <span id="kpiVar" class="text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs">--%</span>
+                <span class="text-gray-500 text-xs">vs. Ano Anterior <span id="kpiPeriodoLabel" class="font-medium text-gray-400"></span></span>
+            </div>
+        </div>
+        <div class="card p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-accentGreen/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            <p class="text-sm font-semibold text-gray-400 mb-1">Ticket Médio / Pedido</p>
+            <h2 id="kpiTicket" class="text-3xl font-bold text-white mb-2">R$ 0,00</h2>
+            <div class="flex items-center text-sm mt-3"><span class="text-gray-400 text-xs">Média por transação filtrada</span></div>
+        </div>
+        <div class="card p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-accentOrange/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            <p class="text-sm font-semibold text-gray-400 mb-1">Qtd. de Pedidos / Linhas</p>
+            <h2 id="kpiQtd" class="text-3xl font-bold text-white mb-2">0</h2>
+            <div class="flex items-center text-sm mt-3"><span class="text-gray-400 text-xs">Registros totais no período</span></div>
+        </div>
+        <div class="card p-6 relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-accentPurple/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+            <p class="text-sm font-semibold text-gray-400 mb-1">Gasto Médio Mensal</p>
+            <h2 id="kpiMediaMes" class="text-3xl font-bold text-white mb-2">R$ 0,00</h2>
+            <div class="flex items-center text-sm mt-3"><span class="text-gray-400 text-xs">Distribuição média</span></div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-1">Gasto por Classe</h3>
+            <p class="text-xs text-gray-500 mb-4">Proporção de custos alocados nas categorias (Top 7).</p>
+            <div class="relative h-[300px] w-full flex justify-center"><canvas id="chartClasse"></canvas></div>
+        </div>
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-1">Gasto por Filial</h3>
+            <p class="text-xs text-gray-500 mb-4">Volume total de compra consolidado por estado.</p>
+            <div class="relative h-[300px] w-full"><canvas id="chartFilial"></canvas></div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-1">Gasto Médio / Mês</h3>
+            <p class="text-xs text-gray-500 mb-4">Total de gasto acumulado por mês do ano.</p>
+            <div class="relative h-[300px] w-full"><canvas id="chartMediaMes"></canvas></div>
+        </div>
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-1">Gasto por Componente (Top 10)</h3>
+            <p class="text-xs text-gray-500 mb-4">Maiores insumos direcionadores de custos.</p>
+            <div class="relative h-[300px] w-full"><canvas id="chartComponente"></canvas></div>
+        </div>
+    </section>
+
+    <section class="card p-6 mb-8">
+        <h3 class="text-lg font-semibold text-white mb-1">Evolução do Gasto: Ano x Ano</h3>
+        <p class="text-xs text-gray-500 mb-4">Comparativo mensal do comportamento de compras ao longo dos anos.</p>
+        <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
+    </section>
+
+    <section class="card p-6 mb-8">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div>
+                <h3 class="text-lg font-semibold text-white mb-1">Custo Total Por Insumo (Curva ABC)</h3>
+                <p class="text-xs text-gray-500">Detalhamento dos insumos geradores de custos.</p>
+            </div>
+            <div class="relative">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" class="search-input" placeholder="Buscar componente ou classe...">
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-gray-700 text-xs text-gray-400">
+                        <th class="py-3 px-4 font-semibold uppercase">Componente</th>
+                        <th class="py-3 px-4 font-semibold uppercase">Classe</th>
+                        <th class="py-3 px-4 font-semibold uppercase">Grupo</th>
+                        <th class="py-3 px-4 font-semibold uppercase text-right">Qtd. Pedidos</th>
+                        <th class="py-3 px-4 font-semibold uppercase text-right">Custo Total</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaRanking" class="text-sm">
+                    <tr><td colspan="5" class="py-4 text-center text-gray-500">Sincronizando dados...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="mt-4 flex items-center justify-between border-t border-gray-800 pt-4">
+            <p class="text-xs text-gray-400" id="tableInfo">Mostrando 0 itens</p>
+            <div class="flex items-center gap-2">
+                <button id="btnPrev" class="px-3 py-1.5 text-xs font-medium text-white bg-gray-800 hover:bg-gray-700 rounded transition-colors disabled:opacity-50">Anterior</button>
+                <span id="pageIndicator" class="text-xs text-gray-300 font-medium px-2">Página 1</span>
+                <button id="btnNext" class="px-3 py-1.5 text-xs font-medium text-white bg-gray-800 hover:bg-gray-700 rounded transition-colors disabled:opacity-50">Próxima</button>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        Chart.register(ChartDataLabels);
+        
+        let globalData = [];
+        let filteredData = [];
+        let chartInstances = {};
+        let tabelaCompleta = [];
+        let tabelaFiltrada = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+
+        const formatBRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+        const formatShortBRL = (value) => {
+            if (!value || value === 0) return '';
+            if (value >= 1000000) return 'R$ ' + (value / 1000000).toFixed(1) + 'M';
+            if (value >= 1000) return 'R$ ' + (value / 1000).toFixed(0) + 'k';
+            return 'R$ ' + value.toFixed(0);
+        };
+
+        const colorsArr = ['#2979ff', '#00e676', '#ff9100', '#b388ff', '#ff1744', '#00e5ff', '#ffca28', '#26a69a'];
+        const mesesOrdenados = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+        
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = 'Inter';
+        Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.05)';
+
+        const defaultDataLabelsConfig = {
+            anchor: 'end', align: 'end', color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)',
+            font: { weight: 'bold', size: 10 }, display: 'auto', formatter: (value) => formatShortBRL(value)
+        };
+
+        // =========================================================================
+        // NOVA LÓGICA: CARREGAMENTO AUTOMÁTICO DO CSV LOCAL ("dados.csv")
+        // =========================================================================
+        document.addEventListener("DOMContentLoaded", () => {
+            // O arquivo deve estar na mesma pasta com o nome "dados.csv"
+            Papa.parse("dados.csv", {
+                download: true, // Avisa o PapaParse para buscar o arquivo por URL/Caminho local
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    // Atualiza o Status na Tela de "Carregando" para "Concluído"
+                    document.getElementById('loaderIcon').style.display = 'none';
+                    const statusText = document.getElementById('statusTexto');
+                    statusText.innerHTML = '<i class="ph-fill ph-check-circle text-accentGreen text-lg mr-1"></i> Sincronizado (' + results.data.length + ' linhas)';
+                    statusText.classList.replace('text-gray-300', 'text-accentGreen');
+
+                    processarDados(results.data);
+                },
+                error: function(err) {
+                    console.error("Erro ao carregar:", err);
+                    document.getElementById('loaderIcon').style.display = 'none';
+                    const statusText = document.getElementById('statusTexto');
+                    statusText.innerHTML = '<i class="ph-fill ph-warning-circle text-red-500 text-lg mr-1"></i> Erro ao buscar dados.csv (Você ativou o Live Server?)';
+                    statusText.classList.replace('text-gray-300', 'text-red-400');
+                }
+            });
+        });
+
+        // O Restante do código de processamento se mantém igual
+        function processarDados(data) {
+            globalData = data.filter(d => d['CUSTO TOTAL (ATUAL)'] != null).map(d => {
+                let mesStr = String(d['MÊS']).toUpperCase().trim();
+                return {
+                    estado: String(d['ESTADO'] || 'N/A').trim(),
+                    componente: String(d['DESC. COMPONENTE'] || 'N/A').trim(),
+                    classe: String(d['CLASSE'] || 'N/A').trim(),
+                    grupo: String(d['GRUPO'] || 'N/A').trim(),
+                    custoTotal: parseFloat(d['CUSTO TOTAL (ATUAL)']) || 0,
+                    ano: String(d['ANO']),
+                    mes: mesStr,
+                    mesIndex: mesesOrdenados.indexOf(mesStr) 
+                };
+            });
+            preencherFiltros();
+            aplicarFiltros(); 
+        }
+
+        function preencherFiltros() {
+            const anos = [...new Set(globalData.map(d => d.ano))].filter(Boolean).sort().reverse();
+            const filiais = [...new Set(globalData.map(d => d.estado))].filter(Boolean).sort();
+            const grupos = [...new Set(globalData.map(d => d.grupo))].filter(Boolean).sort();
+            const classes = [...new Set(globalData.map(d => d.classe))].filter(Boolean).sort();
+
+            const createOpts = (arr, id) => {
+                const sel = document.getElementById(id);
+                sel.innerHTML = '<option value="TODOS">Todos</option>' + arr.map(a => `<option value="${a}">${a}</option>`).join('');
+                sel.onchange = aplicarFiltros;
+            };
+
+            createOpts(anos, 'filterAno');
+            createOpts(filiais, 'filterFilial');
+            createOpts(grupos, 'filterGrupo');
+            createOpts(classes, 'filterClasse');
+        }
+
+        function aplicarFiltros() {
+            const fAno = document.getElementById('filterAno').value;
+            const fFilial = document.getElementById('filterFilial').value;
+            const fGrupo = document.getElementById('filterGrupo').value;
+            const fClasse = document.getElementById('filterClasse').value;
+
+            filteredData = globalData.filter(d => {
+                return (fAno === 'TODOS' || d.ano === fAno) &&
+                       (fFilial === 'TODOS' || d.estado === fFilial) &&
+                       (fGrupo === 'TODOS' || d.grupo === fGrupo) &&
+                       (fClasse === 'TODOS' || d.classe === fClasse);
+            });
+            atualizarDashboard(fAno);
+        }
+
+        function atualizarDashboard(anoFiltrado) {
+            const total = filteredData.reduce((acc, val) => acc + val.custoTotal, 0);
+            const qtd = filteredData.length;
+            const ticket = qtd > 0 ? total / qtd : 0;
+            const mesesUnicos = new Set(filteredData.map(d => d.ano + '-' + d.mes)).size || 1;
+            const mediaMes = total / mesesUnicos;
+
+            document.getElementById('kpiTotal').innerText = formatBRL(total);
+            document.getElementById('kpiTicket').innerText = formatBRL(ticket);
+            document.getElementById('kpiQtd').innerText = qtd.toLocaleString('pt-BR');
+            document.getElementById('kpiMediaMes').innerText = formatBRL(mediaMes);
+
+            if (anoFiltrado && anoFiltrado !== 'TODOS') {
+                const anoAnterior = String(parseInt(anoFiltrado) - 1);
+                const fFilial = document.getElementById('filterFilial').value;
+                const fGrupo = document.getElementById('filterGrupo').value;
+                const fClasse = document.getElementById('filterClasse').value;
+
+                let maxMesIndex = 11;
+                if (filteredData.length > 0) {
+                    maxMesIndex = Math.max(...filteredData.map(d => d.mesIndex));
+                    document.getElementById('kpiPeriodoLabel').innerText = `(até ${mesesOrdenados[maxMesIndex]})`;
+                } else { document.getElementById('kpiPeriodoLabel').innerText = ""; }
+
+                const dadosAnoAnterior = globalData.filter(d => 
+                    d.ano === anoAnterior &&
+                    (fFilial === 'TODOS' || d.estado === fFilial) &&
+                    (fGrupo === 'TODOS' || d.grupo === fGrupo) &&
+                    (fClasse === 'TODOS' || d.classe === fClasse) &&
+                    d.mesIndex <= maxMesIndex
+                );
+                
+                const totalAnterior = dadosAnoAnterior.reduce((acc, val) => acc + val.custoTotal, 0);
+                const varContainer = document.getElementById('kpiVar');
+                
+                if(totalAnterior > 0) {
+                    const variacao = ((total - totalAnterior) / totalAnterior) * 100;
+                    if(variacao > 0) {
+                        varContainer.innerHTML = `<i class="ph-bold ph-trend-up mr-1"></i> +${variacao.toFixed(1)}%`;
+                        varContainer.className = "text-red-400 flex items-center bg-red-400/10 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                    } else {
+                        varContainer.innerHTML = `<i class="ph-bold ph-trend-down mr-1"></i> ${variacao.toFixed(1)}%`;
+                        varContainer.className = "text-accentGreen flex items-center bg-accentGreen/10 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                    }
+                } else {
+                    varContainer.innerHTML = `--%`;
+                    varContainer.className = "text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                }
+            } else {
+                document.getElementById('kpiPeriodoLabel').innerText = "";
+                document.getElementById('kpiVar').innerHTML = `--%`;
+                document.getElementById('kpiVar').className = "text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+            }
+
+            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); processarDadosTabela();
+        }
+
+        function destroyChart(id) { if (chartInstances[id]) chartInstances[id].destroy(); }
+        function groupBy(array, key) { return array.reduce((r, c) => { (r[c[key]] = r[c[key]] || []).push(c); return r; }, {}); }
+
+        function renderChartClasse() {
+            destroyChart('chartClasse');
+            const agrupado = groupBy(filteredData, 'classe');
+            const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0)).slice(0, 7);
+            const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
+            const ctx = document.getElementById('chartClasse').getContext('2d');
+            chartInstances['chartClasse'] = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colorsArr, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0', boxWidth: 12 } }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: { color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)', font: { weight: 'bold', size: 11 }, formatter: (value) => formatShortBRL(value), display: function(c) { return c.dataset.data[c.dataIndex] > (data.reduce((a,b)=>a+b,0) * 0.05); } } }, cutout: '70%' } });
+        }
+
+        function renderChartFilial() {
+            destroyChart('chartFilial');
+            const agrupado = groupBy(filteredData, 'estado');
+            const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0));
+            const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
+            const ctx = document.getElementById('chartFilial').getContext('2d');
+            chartInstances['chartFilial'] = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#00e676', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+        }
+
+        function renderChartMediaMes() {
+            destroyChart('chartMediaMes');
+            const agrupado = groupBy(filteredData, 'mes');
+            const data = mesesOrdenados.map(mes => { const itens = agrupado[mes] || []; return itens.reduce((acc, val) => acc + val.custoTotal, 0); });
+            const ctx = document.getElementById('chartMediaMes').getContext('2d');
+            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: [{ label: 'Gasto por Mês', data: data, backgroundColor: '#ff9100', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+        }
+
+        function renderChartComponente() {
+            destroyChart('chartComponente');
+            const agrupado = groupBy(filteredData, 'componente');
+            const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0)).slice(0, 10);
+            const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
+            const ctx = document.getElementById('chartComponente').getContext('2d');
+            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#b388ff', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+        }
+
+        function renderChartEvolucao() {
+            destroyChart('chartEvolucao');
+            const fFilial = document.getElementById('filterFilial').value; const fGrupo = document.getElementById('filterGrupo').value; const fClasse = document.getElementById('filterClasse').value;
+            const baseParaEvolucao = globalData.filter(d => (fFilial === 'TODOS' || d.estado === fFilial) && (fGrupo === 'TODOS' || d.grupo === fGrupo) && (fClasse === 'TODOS' || d.classe === fClasse));
+            const dadosPorAno = groupBy(baseParaEvolucao, 'ano');
+            const anos = Object.keys(dadosPorAno).sort();
+            const datasets = anos.map((ano, index) => {
+                const mesesAno = groupBy(dadosPorAno[ano], 'mes');
+                const dataValues = mesesOrdenados.map(mes => mesesAno[mes] ? mesesAno[mes].reduce((acc, val) => acc + val.custoTotal, 0) : 0);
+                return { label: 'Ano ' + ano, data: dataValues, borderColor: colorsArr[index % colorsArr.length], backgroundColor: colorsArr[index % colorsArr.length], borderWidth: 2, pointBackgroundColor: '#1a1a24', pointBorderWidth: 2, pointRadius: 4, tension: 0.3 };
+            });
+            const ctx = document.getElementById('chartEvolucao').getContext('2d');
+            chartInstances['chartEvolucao'] = new Chart(ctx, { type: 'line', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatBRL(ctx.raw) } }, datalabels: { anchor: 'end', align: 'top', offset: 4, color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)', font: { size: 10, weight: 'bold' }, display: 'auto', formatter: (val) => val > 0 ? formatShortBRL(val) : '' } }, scales: { y: { beginAtZero: true, ticks: { callback: (val) => 'R$ ' + (val/1000).toFixed(0) + 'k' } } } } });
+        }
+
+        function processarDadosTabela() {
+            const agrupado = groupBy(filteredData, 'componente');
+            tabelaCompleta = Object.keys(agrupado).map(comp => { const itens = agrupado[comp]; return { componente: comp, classe: itens[0].classe, grupo: itens[0].grupo, qtd: itens.length, custo: itens.reduce((acc, val) => acc + val.custoTotal, 0) }; }).sort((a, b) => b.custo - a.custo);
+            currentPage = 1; document.getElementById('searchInput').value = ''; aplicarBuscaETabela();
+        }
+
+        document.getElementById('searchInput').addEventListener('input', function(e) { currentPage = 1; aplicarBuscaETabela(); });
+
+        function aplicarBuscaETabela() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            if (term) { tabelaFiltrada = tabelaCompleta.filter(item => item.componente.toLowerCase().includes(term) || item.classe.toLowerCase().includes(term) || item.grupo.toLowerCase().includes(term)); } 
+            else { tabelaFiltrada = [...tabelaCompleta]; }
+            renderizarPaginaTabela();
+        }
+
+        function renderizarPaginaTabela() {
+            const tbody = document.getElementById('tabelaRanking');
+            const totalItems = tabelaFiltrada.length; const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+            const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage;
+            const itensPagina = tabelaFiltrada.slice(startIndex, endIndex);
+
+            if(totalItems === 0) { tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-500">Nenhum insumo encontrado.</td></tr>'; } 
+            else {
+                tbody.innerHTML = itensPagina.map(l => `
+                    <tr class="border-b border-gray-800/60 hover:bg-gray-800/40 transition-colors">
+                        <td class="py-3 px-4 font-medium text-white">${l.componente}</td>
+                        <td class="py-3 px-4 text-gray-400 text-xs">${l.classe}</td>
+                        <td class="py-3 px-4 text-gray-400 text-xs">${l.grupo}</td>
+                        <td class="py-3 px-4 text-right text-gray-300">${l.qtd}</td>
+                        <td class="py-3 px-4 text-right font-semibold text-accentGreen">${formatBRL(l.custo)}</td>
+                    </tr>
+                `).join('');
+            }
+            document.getElementById('tableInfo').innerText = `Mostrando ${itensPagina.length > 0 ? startIndex + 1 : 0} a ${Math.min(endIndex, totalItems)} de ${totalItems} insumos`;
+            document.getElementById('pageIndicator').innerText = `Página ${currentPage} de ${totalPages}`;
+            document.getElementById('btnPrev').disabled = (currentPage === 1); document.getElementById('btnNext').disabled = (currentPage === totalPages);
+        }
+
+        document.getElementById('btnPrev').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderizarPaginaTabela(); }});
+        document.getElementById('btnNext').addEventListener('click', () => { const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage); if (currentPage < totalPages) { currentPage++; renderizarPaginaTabela(); }});
+    </script>
+</body>
+</html>
