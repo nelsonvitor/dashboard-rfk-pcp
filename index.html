@@ -336,13 +336,14 @@
         Chart.defaults.font.family = 'Inter';
         Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.05)';
 
+        // Rótulos inteligentes com sombreamento corporativo e antienchimento
         const defaultDataLabelsConfig = {
             anchor: 'end', align: 'end', color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)',
             font: { weight: 'bold', size: 10 }, display: 'auto', formatter: (value) => formatShortBRL(value)
         };
 
         // =========================================================================
-        // LÓGICA: CARREGAMENTO AUTOMÁTICO DOS 2 CSVs (DADOS + BASE VENDAS)
+        // SINCRONIZAÇÃO AUTOMÁTICA DOS DOIS ARQUIVOS LOCAIS NA MESMA PASTA
         // =========================================================================
         document.addEventListener("DOMContentLoaded", () => {
             let dadosInsumosOk = false;
@@ -360,21 +361,21 @@
                 }
             }
 
-            // 1. CARREGAR INSUMOS
+            // 1. CARREGAR DADOS DE INSUMOS
             Papa.parse("dados.csv", {
                 download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
                 complete: function(results) { processarDadosInsumos(results.data); dadosInsumosOk = true; verificarSincronizacao(); },
                 error: function(err) { console.error("Erro dados.csv:", err); dadosInsumosOk = true; verificarSincronizacao(); }
             });
 
-            // 2. CARREGAR FATURAMENTO
+            // 2. CARREGAR BASE DE VENDAS (FATURAMENTO)
             Papa.parse("base_vendas.csv", {
                 download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
                 complete: function(results) { processarDadosFaturamento(results.data); dadosFaturamentoOk = true; verificarSincronizacao(); },
                 error: function(err) { console.error("Erro base_vendas.csv:", err); dadosFaturamentoOk = true; verificarSincronizacao(); }
             });
 
-            // EVENTO DE TOGGLE DO FATURAMENTO
+            // ALTERAÇÃO DO TOGGLE
             document.getElementById('toggleFaturamento').addEventListener('change', () => {
                 aplicarFiltros(); 
             });
@@ -395,40 +396,21 @@
         }
 
         function processarDadosFaturamento(data) {
-            if (data.length > 0) {
-                console.log("Amostra (Linha 1) da base_vendas.csv detectada:", data[0]);
-            }
-
             globalFaturamento = data.map(d => {
                 const chaves = Object.keys(d);
-                
-                // 1. Busca inteligente da Coluna de VALOR
-                let valKey = chaves.find(k => k && (
-                    k.toUpperCase().includes('FATURAMENTO') || 
-                    k.toUpperCase().includes('VALOR') || 
-                    k.toUpperCase().includes('TOTAL') || 
-                    k.toUpperCase().includes('RECEITA')
-                ));
+                let valKey = chaves.find(k => k && (k.toUpperCase().includes('FATURAMENTO') || k.toUpperCase().includes('VALOR') || k.toUpperCase().includes('TOTAL') || k.toUpperCase().includes('RECEITA')));
                 
                 let rawVal = valKey ? d[valKey] : 0;
                 let val = 0;
-                
-                if (typeof rawVal === 'number') { 
-                    val = rawVal; 
-                } else if (typeof rawVal === 'string') {
-                    // Tratamento robusto para números como R$ 1.200,50
+                if (typeof rawVal === 'number') { val = rawVal; } 
+                else if (typeof rawVal === 'string') {
                     let strVal = rawVal.replace(/[R$\s]/g, '').trim();
-                    if (strVal.includes(',') && strVal.includes('.')) {
-                        strVal = strVal.replace(/\./g, '').replace(',', '.');
-                    } else if (strVal.includes(',')) {
-                        strVal = strVal.replace(',', '.');
-                    }
+                    if (strVal.includes(',') && strVal.includes('.')) { strVal = strVal.replace(/\./g, '').replace(',', '.'); }
+                    else if (strVal.includes(',')) { strVal = strVal.replace(',', '.'); }
                     val = parseFloat(strVal) || 0;
                 }
 
-                // 2. Busca inteligente da Coluna de DATA
                 let ano = '', mesIndex = -1, mesStr = 'N/A';
-
                 let dataKey = chaves.find(k => k && k.toUpperCase().includes('DATA'));
                 let mesKey = chaves.find(k => k && (k.toUpperCase() === 'MÊS' || k.toUpperCase() === 'MES'));
                 let anoKey = chaves.find(k => k && k.toUpperCase() === 'ANO');
@@ -437,17 +419,15 @@
                     ano = String(d[anoKey]).trim();
                     let m = String(d[mesKey]).toUpperCase().trim();
                     mesIndex = mesesOrdenados.indexOf(m);
-                    if (mesIndex === -1 && !isNaN(parseInt(m))) {
-                        mesIndex = parseInt(m) - 1; // caso venha como "1", "2"
-                    }
+                    if (mesIndex === -1 && !isNaN(parseInt(m))) { mesIndex = parseInt(m) - 1; }
                     mesStr = mesesOrdenados[mesIndex] || m;
                 } 
                 else if (dataKey) {
                     let dataRaw = String(d[dataKey]).trim();
-                    let m1 = dataRaw.match(/(\d{4})-(\d{2})/);           // YYYY-MM
-                    let m2 = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4})/); // DD/MM/YYYY
-                    let m3 = dataRaw.match(/(\d{2})\/(\d{4})/);           // MM/YYYY
-                    let m4 = dataRaw.match(/(\d{4})\/(\d{2})/);           // YYYY/MM
+                    let m1 = dataRaw.match(/(\d{4})-(\d{2})/);           
+                    let m2 = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4})/); 
+                    let m3 = dataRaw.match(/(\d{2})\/(\d{4})/);           
+                    let m4 = dataRaw.match(/(\d{4})\/(\d{2})/);           
                     
                     if (m2) { mesIndex = parseInt(m2[2], 10) - 1; ano = m2[3]; }
                     else if (m1) { ano = m1[1]; mesIndex = parseInt(m1[2], 10) - 1; }
@@ -459,8 +439,6 @@
 
                 return { ano, mes: mesStr, mesIndex, faturamento: val };
             }).filter(d => d.ano && d.faturamento > 0);
-            
-            console.log(`Total de linhas processadas com faturamento válido: ${globalFaturamento.length}`);
         }
 
         // ===== Estado dos filtros multi-seleção =====
@@ -556,7 +534,7 @@
         }
 
         function aplicarFiltros() {
-            // Filtros de Insumos (obedece a tudo)
+            // Filtro de custos obedece a todas as dimensões
             filteredData = globalData.filter(d => {
                 return matchSet(filterState.ano, d.ano) &&
                        matchSet(filterState.mes, d.mes) &&
@@ -565,7 +543,7 @@
                        matchSet(filterState.classe, d.classe);
             });
             
-            // Filtros de Faturamento (obedece apenas tempo: Ano e Mês, para ficar estático perante filiais/grupos)
+            // Faturamento fica estático para Filial/Grupo/Classe, respondendo apenas a ANO e MÊS
             faturamentoFiltrado = globalFaturamento.filter(d => {
                 return matchSet(filterState.ano, d.ano) && matchSet(filterState.mes, d.mes);
             });
@@ -580,7 +558,6 @@
             const mesesUnicos = new Set(filteredData.map(d => d.ano + '-' + d.mes)).size || 1;
             const mediaMes = total / mesesUnicos;
 
-            // Valores de Faturamento e a Lógica de %
             const isFaturamentoAtivo = document.getElementById('toggleFaturamento').checked;
             const totalFat = faturamentoFiltrado.reduce((acc, val) => acc + val.faturamento, 0);
             const kpiFatEl = document.getElementById('kpiFatPercent');
@@ -602,7 +579,7 @@
             document.getElementById('kpiQtd').innerText = qtd.toLocaleString('pt-BR');
             document.getElementById('kpiMediaMes').innerText = formatBRL(mediaMes);
 
-            // Comparativo de Ano vs. Ano (YTD)
+            // Comparativo de Ano vs. Ano (YTD inteligente)
             const anoFiltrado = filterState.ano.size === 1 ? [...filterState.ano][0] : null;
 
             if (anoFiltrado) {
@@ -659,13 +636,18 @@
             chartInstances['chartClasse'] = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colorsArr, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0', boxWidth: 12 } }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: { color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)', font: { weight: 'bold', size: 11 }, formatter: (value) => formatShortBRL(value), display: function(c) { return c.dataset.data[c.dataIndex] > (data.reduce((a,b)=>a+b,0) * 0.05); } } }, cutout: '70%' } });
         }
 
+        // Gráfico de Filial em Colunas com Rótulos Visíveis e Protegidos
         function renderChartFilial() {
             destroyChart('chartFilial');
             const agrupado = groupBy(filteredData, 'estado');
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0));
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartFilial').getContext('2d');
-            chartInstances['chartFilial'] = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#00e676', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            chartInstances['chartFilial'] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#00e676', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } }
+            });
         }
 
         function renderChartMediaMes() {
