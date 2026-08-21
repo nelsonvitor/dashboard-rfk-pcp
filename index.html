@@ -106,6 +106,24 @@
             width: 15px; height: 15px; accent-color: #2979ff; cursor: pointer; flex-shrink: 0;
         }
         .hidden { display: none; }
+
+        /* ===== Toggle switch (Faturamento) ===== */
+        .toggle-switch-btn {
+            display: flex; align-items: center; gap: 10px; background-color: #0a0a0f; border: 1px solid #374151;
+            border-radius: 999px; padding: 6px 6px 6px 14px; cursor: pointer; transition: border-color 0.2s; flex-shrink: 0;
+        }
+        .toggle-switch-btn:hover { border-color: #6b7280; }
+        .toggle-switch-track {
+            position: relative; width: 38px; height: 20px; border-radius: 999px; background-color: #374151;
+            transition: background-color 0.2s; flex-shrink: 0;
+        }
+        .toggle-switch-knob {
+            position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+            background-color: #fff; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .toggle-switch-btn.on { border-color: rgba(255, 179, 0, 0.5); }
+        .toggle-switch-btn.on .toggle-switch-track { background-color: #ff9100; }
+        .toggle-switch-btn.on .toggle-switch-knob { transform: translateX(18px); }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 font-sans antialiased">
@@ -119,17 +137,9 @@
             <p class="text-gray-400 text-sm mt-1 uppercase tracking-[0.15em] font-medium">Análise Executiva de Compras e Gestão de Insumos</p>
         </div>
         
-        <div class="flex flex-wrap items-center gap-4">
-            <!-- BOTÃO TOGGLE PARA ATIVAR FATURAMENTO -->
-            <label class="flex items-center gap-2 cursor-pointer bg-[#1a1a24] border border-[#2979ff]/40 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-200 hover:border-[#2979ff] transition-all shadow-[0_0_15px_rgba(41,121,255,0.15)]">
-                <input type="checkbox" id="toggleFaturamento" class="w-4 h-4 accent-accentBlue cursor-pointer" checked>
-                Ativar Faturamento
-            </label>
-            
-            <div id="statusCarregamento" class="flex items-center gap-3 bg-gray-800/50 border border-gray-700 px-5 py-2.5 rounded-xl font-medium text-sm text-gray-300">
-                <div class="loader" id="loaderIcon"></div>
-                <span id="statusTexto">Sincronizando CSVs...</span>
-            </div>
+        <div id="statusCarregamento" class="flex items-center gap-3 bg-gray-800/50 border border-gray-700 px-5 py-2.5 rounded-xl font-medium text-sm text-gray-300">
+            <div class="loader" id="loaderIcon"></div>
+            <span id="statusTexto">Sincronizando dados.csv...</span>
         </div>
     </header>
 
@@ -215,8 +225,6 @@
                 <span id="kpiVar" class="text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs">--%</span>
                 <span class="text-gray-500 text-xs">vs. Ano Anterior <span id="kpiPeriodoLabel" class="font-medium text-gray-400"></span></span>
             </div>
-            <!-- Div para a porcentagem de faturamento -->
-            <div id="kpiFatPercent"></div>
         </div>
         <div class="card p-6 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-24 h-24 bg-accentGreen/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
@@ -253,7 +261,7 @@
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="card p-6">
-            <h3 class="text-lg font-semibold text-white mb-1">Gasto x Faturamento / Mês</h3>
+            <h3 class="text-lg font-semibold text-white mb-1">Gasto Médio / Mês</h3>
             <p class="text-xs text-gray-500 mb-4">Total de gasto acumulado por mês do ano.</p>
             <div class="relative h-[300px] w-full"><canvas id="chartMediaMes"></canvas></div>
         </div>
@@ -265,8 +273,17 @@
     </section>
 
     <section class="card p-6 mb-8">
-        <h3 class="text-lg font-semibold text-white mb-1">Evolução do Gasto: Ano x Ano</h3>
-        <p class="text-xs text-gray-500 mb-4">Comparativo mensal do comportamento de compras (e faturamento) ao longo dos anos.</p>
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-1">
+            <div>
+                <h3 class="text-lg font-semibold text-white mb-1">Evolução do Gasto: Ano x Ano</h3>
+                <p class="text-xs text-gray-500">Comparativo mensal do comportamento de compras ao longo dos anos.</p>
+            </div>
+            <button type="button" id="toggleFaturamento" class="toggle-switch-btn">
+                <span class="text-xs font-semibold text-gray-300 uppercase tracking-wider">Faturamento</span>
+                <span class="toggle-switch-track"><span class="toggle-switch-knob"></span></span>
+            </button>
+        </div>
+        <p class="text-[11px] text-gray-500 mb-4 hidden" id="faturamentoLegenda">Linhas tracejadas = Faturamento (eixo direito) · Rótulo % = Insumos sobre Faturamento no mês</p>
         <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
     </section>
 
@@ -311,10 +328,9 @@
         Chart.register(ChartDataLabels);
         
         let globalData = [];
-        let filteredData = [];
         let globalFaturamento = [];
-        let faturamentoFiltrado = [];
-        
+        let mostrarFaturamento = false;
+        let filteredData = [];
         let chartInstances = {};
         let tabelaCompleta = [];
         let tabelaFiltrada = [];
@@ -341,46 +357,54 @@
             font: { weight: 'bold', size: 10 }, display: 'auto', formatter: (value) => formatShortBRL(value)
         };
 
-        // =========================================================================
-        // LÓGICA: CARREGAMENTO AUTOMÁTICO DOS 2 CSVs (DADOS + BASE VENDAS)
-        // =========================================================================
-        document.addEventListener("DOMContentLoaded", () => {
-            let dadosInsumosOk = false;
-            let dadosFaturamentoOk = false;
+        // Toggle "Exibir Faturamento" no gráfico de evolução
+        const btnToggleFaturamento = document.getElementById('toggleFaturamento');
+        if (btnToggleFaturamento) {
+            btnToggleFaturamento.addEventListener('click', () => {
+                mostrarFaturamento = !mostrarFaturamento;
+                btnToggleFaturamento.classList.toggle('on', mostrarFaturamento);
+                const legenda = document.getElementById('faturamentoLegenda');
+                if (legenda) legenda.classList.toggle('hidden', !mostrarFaturamento);
+                renderChartEvolucao();
+            });
+        }
 
-            function verificarSincronizacao() {
-                if(dadosInsumosOk && dadosFaturamentoOk) {
+        // =========================================================================
+        // CARREGAMENTO AUTOMÁTICO DOS CSVs LOCAIS ("dados.csv" + "base_vendas.csv")
+        // =========================================================================
+        function carregarCSV(nomeArquivo) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(nomeArquivo, {
+                    download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
+                    complete: resolve, error: reject
+                });
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            Promise.all([carregarCSV("dados.csv"), carregarCSV("base_vendas.csv")])
+                .then(([resultadoInsumos, resultadoFaturamento]) => {
                     document.getElementById('loaderIcon').style.display = 'none';
                     const statusText = document.getElementById('statusTexto');
-                    statusText.innerHTML = '<i class="ph-fill ph-check-circle text-accentGreen text-lg mr-1"></i> Bases Sincronizadas';
+                    statusText.innerHTML = '<i class="ph-fill ph-check-circle text-accentGreen text-lg mr-1"></i> Sincronizado (' + resultadoInsumos.data.length + ' insumos · ' + resultadoFaturamento.data.length + ' faturamento)';
                     statusText.classList.replace('text-gray-300', 'text-accentGreen');
-                    
+
+                    processarDados(resultadoInsumos.data);
+                    processarFaturamento(resultadoFaturamento.data);
                     preencherFiltros();
-                    aplicarFiltros(); 
-                }
-            }
-
-            // 1. CARREGAR INSUMOS
-            Papa.parse("dados.csv", {
-                download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
-                complete: function(results) { processarDadosInsumos(results.data); dadosInsumosOk = true; verificarSincronizacao(); },
-                error: function(err) { console.error("Erro dados.csv:", err); dadosInsumosOk = true; verificarSincronizacao(); }
-            });
-
-            // 2. CARREGAR FATURAMENTO
-            Papa.parse("base_vendas.csv", {
-                download: true, header: true, dynamicTyping: true, skipEmptyLines: true,
-                complete: function(results) { processarDadosFaturamento(results.data); dadosFaturamentoOk = true; verificarSincronizacao(); },
-                error: function(err) { console.error("Erro base_vendas.csv:", err); dadosFaturamentoOk = true; verificarSincronizacao(); }
-            });
-
-            // EVENTO DE TOGGLE DO FATURAMENTO
-            document.getElementById('toggleFaturamento').addEventListener('change', () => {
-                aplicarFiltros(); // Re-renderiza respeitando a chave
-            });
+                    aplicarFiltros();
+                })
+                .catch(err => {
+                    console.error("Erro ao carregar:", err);
+                    document.getElementById('loaderIcon').style.display = 'none';
+                    const statusText = document.getElementById('statusTexto');
+                    statusText.innerHTML = '<i class="ph-fill ph-warning-circle text-red-500 text-lg mr-1"></i> Erro ao buscar dados.csv / base_vendas.csv (Você ativou o Live Server?)';
+                    statusText.classList.replace('text-gray-300', 'text-red-400');
+                });
         });
 
-        function processarDadosInsumos(data) {
+        // Insumos (compras) — respeita todos os filtros (Ano, Mês, Filial, Grupo, Classe)
+        function processarDados(data) {
             globalData = data.filter(d => d['CUSTO TOTAL (ATUAL)'] != null).map(d => {
                 let mesStr = String(d['MÊS']).toUpperCase().trim();
                 return {
@@ -389,45 +413,34 @@
                     classe: String(d['CLASSE'] || 'N/A').trim(),
                     grupo: String(d['GRUPO'] || 'N/A').trim(),
                     custoTotal: parseFloat(d['CUSTO TOTAL (ATUAL)']) || 0,
-                    ano: String(d['ANO']), mes: mesStr, mesIndex: mesesOrdenados.indexOf(mesStr) 
+                    ano: String(d['ANO']),
+                    mes: mesStr,
+                    mesIndex: mesesOrdenados.indexOf(mesStr) 
                 };
             });
         }
 
-        function processarDadosFaturamento(data) {
-            globalFaturamento = data.map(d => {
-                // Busca coluna flexível para FATURAMENTO ou VALOR
-                let valKey = Object.keys(d).find(k => k && k.toUpperCase().includes('FATURAMENTO'));
-                if(!valKey) valKey = Object.keys(d).find(k => k && (k.toUpperCase().includes('VALOR') || k.toUpperCase().includes('TOTAL')));
-                
-                let rawVal = d[valKey];
-                let val = 0;
-                if (typeof rawVal === 'number') { val = rawVal; } 
-                else if (typeof rawVal === 'string') {
-                    rawVal = rawVal.replace(/[R$\s]/g, '');
-                    if (rawVal.includes(',')) { rawVal = rawVal.replace(/\./g, '').replace(',', '.'); }
-                    val = parseFloat(rawVal) || 0;
+        // Faturamento — valores totais mensais (sem quebra por Filial/Grupo/Classe).
+        // Por isso só respeita os filtros de Ano e Mês; Filial/Grupo/Classe não o alteram.
+        function processarFaturamento(data) {
+            globalFaturamento = data.filter(d => d['[SumFaturamento]'] != null).map(d => {
+                let anoVal = d['fVendas[ANO]'];
+                let mesNum = d['fVendas[Mês]'];
+                if ((anoVal == null || mesNum == null) && d['DATA']) {
+                    const dt = new Date(d['DATA']);
+                    if (!isNaN(dt)) { anoVal = anoVal ?? dt.getFullYear(); mesNum = mesNum ?? (dt.getMonth() + 1); }
                 }
-
-                // Busca coluna DATA e extrai Mês/Ano inteligentemente
-                let dataKey = Object.keys(d).find(k => k && k.toUpperCase().includes('DATA'));
-                let dataRaw = dataKey ? String(d[dataKey]).trim() : '';
-                
-                let ano = '', mesIndex = -1;
-                let m1 = dataRaw.match(/(\d{4})-(\d{2})/);           // YYYY-MM
-                let m2 = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4})/); // DD/MM/YYYY
-                let m3 = dataRaw.match(/(\d{2})\/(\d{4})/);           // MM/YYYY
-                
-                if (m2) { mesIndex = parseInt(m2[2], 10) - 1; ano = m2[3]; }
-                else if (m1) { ano = m1[1]; mesIndex = parseInt(m1[2], 10) - 1; }
-                else if (m3) { mesIndex = parseInt(m3[1], 10) - 1; ano = m3[2]; }
-                
-                let mesStr = mesesOrdenados[mesIndex] || 'N/A';
-                return { ano, mes: mesStr, mesIndex, faturamento: val };
-            }).filter(d => d.ano && d.faturamento > 0);
+                return {
+                    ano: String(anoVal),
+                    mesIndex: Number(mesNum) - 1,
+                    mes: mesesOrdenados[Number(mesNum) - 1],
+                    faturamento: parseFloat(d['[SumFaturamento]']) || 0
+                };
+            }).filter(d => d.mesIndex >= 0 && d.mesIndex <= 11 && d.ano && d.ano !== 'null' && d.ano !== 'undefined');
         }
 
         // ===== Estado dos filtros multi-seleção =====
+        // Conjunto vazio = "Todos" (nenhum filtro aplicado naquela dimensão)
         const filterState = { ano: new Set(), mes: new Set(), filial: new Set(), grupo: new Set(), classe: new Set() };
         const matchSet = (set, value) => set.size === 0 || set.has(value);
 
@@ -463,6 +476,7 @@
                     aplicarFiltros();
                 });
             });
+
             atualizarLabelMultiSelect(key, idSuffix, arr.length);
         }
 
@@ -520,7 +534,6 @@
         }
 
         function aplicarFiltros() {
-            // Filtros de Insumos (obedece a tudo)
             filteredData = globalData.filter(d => {
                 return matchSet(filterState.ano, d.ano) &&
                        matchSet(filterState.mes, d.mes) &&
@@ -528,12 +541,6 @@
                        matchSet(filterState.grupo, d.grupo) &&
                        matchSet(filterState.classe, d.classe);
             });
-            
-            // Filtros de Faturamento (obedece apenas tempo: Ano e Mês, para ficar estático perante filiais/grupos)
-            faturamentoFiltrado = globalFaturamento.filter(d => {
-                return matchSet(filterState.ano, d.ano) && matchSet(filterState.mes, d.mes);
-            });
-            
             atualizarDashboard();
         }
 
@@ -544,29 +551,12 @@
             const mesesUnicos = new Set(filteredData.map(d => d.ano + '-' + d.mes)).size || 1;
             const mediaMes = total / mesesUnicos;
 
-            // Valores de Faturamento e a Lógica de %
-            const isFaturamentoAtivo = document.getElementById('toggleFaturamento').checked;
-            const totalFat = faturamentoFiltrado.reduce((acc, val) => acc + val.faturamento, 0);
-            const kpiFatEl = document.getElementById('kpiFatPercent');
-
             document.getElementById('kpiTotal').innerText = formatBRL(total);
-            
-            if(isFaturamentoAtivo && totalFat > 0) {
-                const percent = ((total / totalFat) * 100).toFixed(1);
-                kpiFatEl.innerHTML = `
-                    <div class="mt-3 text-[11px] bg-[#2979ff]/15 text-accentBlue px-2.5 py-1.5 rounded inline-block font-semibold border border-[#2979ff]/30 tracking-wide uppercase">
-                        Custo equivale a ${percent}% do faturamento (${formatShortBRL(totalFat)})
-                    </div>
-                `;
-            } else {
-                kpiFatEl.innerHTML = '';
-            }
-
             document.getElementById('kpiTicket').innerText = formatBRL(ticket);
             document.getElementById('kpiQtd').innerText = qtd.toLocaleString('pt-BR');
             document.getElementById('kpiMediaMes').innerText = formatBRL(mediaMes);
 
-            // Comparativo de Ano vs. Ano (YTD)
+            // A comparação vs. ano anterior só faz sentido com exatamente 1 ano selecionado
             const anoFiltrado = filterState.ano.size === 1 ? [...filterState.ano][0] : null;
 
             if (anoFiltrado) {
@@ -629,24 +619,19 @@
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0));
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartFilial').getContext('2d');
-            chartInstances['chartFilial'] = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#00e676', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            const gradFilial = ctx.createLinearGradient(0, 0, 0, 300);
+            gradFilial.addColorStop(0, '#00e676'); gradFilial.addColorStop(1, hexToRgba('#00e676', 0.25));
+            chartInstances['chartFilial'] = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: gradFilial, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
         function renderChartMediaMes() {
             destroyChart('chartMediaMes');
-            const agrupadoInsumos = groupBy(filteredData, 'mes');
-            const agrupadoFat = groupBy(faturamentoFiltrado, 'mes');
-            
-            const dataInsumos = mesesOrdenados.map(mes => { const itens = agrupadoInsumos[mes] || []; return itens.reduce((acc, val) => acc + val.custoTotal, 0); });
-            const dataFat = mesesOrdenados.map(mes => { const itens = agrupadoFat[mes] || []; return itens.reduce((acc, val) => acc + val.faturamento, 0); });
-
-            const isFatActive = document.getElementById('toggleFaturamento').checked;
-            
-            const datasets = [{ label: 'Gasto Insumos', data: dataInsumos, backgroundColor: '#ff9100', borderRadius: 4 }];
-            if (isFatActive) { datasets.push({ label: 'Faturamento', data: dataFat, backgroundColor: '#2979ff', borderRadius: 4 }); }
-
+            const agrupado = groupBy(filteredData, 'mes');
+            const data = mesesOrdenados.map(mes => { const itens = agrupado[mes] || []; return itens.reduce((acc, val) => acc + val.custoTotal, 0); });
             const ctx = document.getElementById('chartMediaMes').getContext('2d');
-            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0'} }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            const gradMes = ctx.createLinearGradient(0, 0, 0, 300);
+            gradMes.addColorStop(0, '#ff9100'); gradMes.addColorStop(1, hexToRgba('#ff9100', 0.25));
+            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: [{ label: 'Gasto por Mês', data: data, backgroundColor: gradMes, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
         function renderChartComponente() {
@@ -655,12 +640,24 @@
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0)).slice(0, 10);
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartComponente').getContext('2d');
-            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#b388ff', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            const gradComp = ctx.createLinearGradient(0, 0, 0, 300);
+            gradComp.addColorStop(0, '#b388ff'); gradComp.addColorStop(1, hexToRgba('#b388ff', 0.25));
+            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: gradComp, borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+        }
+
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r},${g},${b},${alpha})`;
         }
 
         function renderChartEvolucao() {
             destroyChart('chartEvolucao');
-            const baseParaEvolucao = globalData.filter(d => matchSet(filterState.filial, d.estado) && matchSet(filterState.grupo, d.grupo) && matchSet(filterState.classe, d.classe));
+            // Respeita Filial/Grupo/Classe (multi) sempre; Ano e Mês (multi) restringem o que aparece
+            const baseParaEvolucao = globalData.filter(d =>
+                matchSet(filterState.filial, d.estado) &&
+                matchSet(filterState.grupo, d.grupo) &&
+                matchSet(filterState.classe, d.classe)
+            );
             const dadosPorAno = groupBy(baseParaEvolucao, 'ano');
             let anos = Object.keys(dadosPorAno).sort();
             if (filterState.ano.size > 0) { anos = anos.filter(a => filterState.ano.has(a)); }
@@ -668,38 +665,65 @@
             let mesesEixo = mesesOrdenados;
             if (filterState.mes.size > 0) { mesesEixo = mesesOrdenados.filter(m => filterState.mes.has(m)); }
 
-            const isFatActive = document.getElementById('toggleFaturamento').checked;
             const ctx = document.getElementById('chartEvolucao').getContext('2d');
 
-            const datasets = anos.map((ano, index) => {
+            // Faturamento: totais mensais, sem quebra por Filial/Grupo/Classe -> só respeita Ano/Mês
+            const dadosPorAnoFat = groupBy(globalFaturamento, 'ano');
+
+            const datasets = [];
+            anos.forEach((ano, index) => {
                 const mesesAno = groupBy(dadosPorAno[ano], 'mes');
                 const dataValues = mesesEixo.map(mes => mesesAno[mes] ? mesesAno[mes].reduce((acc, val) => acc + val.custoTotal, 0) : 0);
                 const cor = colorsArr[index % colorsArr.length];
                 const gradient = ctx.createLinearGradient(0, 0, 0, 320);
                 gradient.addColorStop(0, hexToRgba(cor, 0.28));
                 gradient.addColorStop(1, hexToRgba(cor, 0.02));
-                return { label: 'Gasto ' + ano, data: dataValues, borderColor: cor, backgroundColor: gradient, fill: true, borderWidth: 2, pointBackgroundColor: '#1a1a24', pointBorderColor: cor, pointBorderWidth: 2, pointRadius: 4, tension: 0.3 };
-            });
+                datasets.push({ label: 'Ano ' + ano, data: dataValues, borderColor: cor, backgroundColor: gradient, fill: true, borderWidth: 2, pointBackgroundColor: '#1a1a24', pointBorderColor: cor, pointBorderWidth: 2, pointRadius: 4, tension: 0.3, yAxisID: 'y' });
 
-            // Se faturamento estiver ligado, empurra as linhas tracejadas baseadas nos mesmos anos escolhidos.
-            if (isFatActive) {
-                const dadosFatPorAno = groupBy(globalFaturamento, 'ano');
-                anos.forEach((ano, index) => {
-                    if (dadosFatPorAno[ano]) {
-                        const cor = colorsArr[index % colorsArr.length];
-                        const mesesAnoFat = groupBy(dadosFatPorAno[ano], 'mes');
-                        const dataValuesFat = mesesEixo.map(mes => mesesAnoFat[mes] ? mesesAnoFat[mes].reduce((acc, val) => acc + val.faturamento, 0) : 0);
-                        datasets.push({ label: 'Fat. ' + ano, data: dataValuesFat, borderColor: cor, borderDash: [6, 4], backgroundColor: 'transparent', fill: false, borderWidth: 2, pointBackgroundColor: '#1a1a24', pointBorderColor: cor, pointBorderWidth: 2, pointRadius: 4, tension: 0.3 });
-                    }
-                });
-            }
+                if (mostrarFaturamento && dadosPorAnoFat[ano]) {
+                    const mesesFatAno = groupBy(dadosPorAnoFat[ano], 'mes');
+                    const dataFatValues = mesesEixo.map(mes => mesesFatAno[mes] ? mesesFatAno[mes].reduce((acc, val) => acc + val.faturamento, 0) : null);
+                    const corFat = '#ffb300';
+                    // % do faturamento do mês correspondente ao custo de insumos filtrado (respeita Filial/Grupo/Classe)
+                    const percentuais = mesesEixo.map((mes, i) => {
+                        const fat = dataFatValues[i];
+                        const cst = dataValues[i];
+                        if (!fat || fat <= 0) return null;
+                        return (cst / fat) * 100;
+                    });
+                    datasets.push({
+                        label: 'Faturamento ' + ano, data: dataFatValues, borderColor: corFat, backgroundColor: corFat,
+                        fill: false, borderWidth: 2, borderDash: [6, 4], pointBackgroundColor: '#1a1a24', pointBorderColor: corFat,
+                        pointBorderWidth: 2, pointRadius: 4, tension: 0.3, yAxisID: 'y1', spanGaps: true,
+                        datalabels: {
+                            anchor: 'end', align: 'top', offset: 6, color: '#ffb300', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)',
+                            font: { size: 10, weight: 'bold' }, display: (c) => percentuais[c.dataIndex] != null,
+                            formatter: (val, c) => percentuais[c.dataIndex] != null ? percentuais[c.dataIndex].toFixed(1) + '%' : ''
+                        }
+                    });
+                }
+            });
 
             if (anos.length === 0 || mesesEixo.length === 0) {
                 chartInstances['chartEvolucao'] = new Chart(ctx, { type: 'line', data: { labels: mesesEixo, datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
                 return;
             }
 
-            chartInstances['chartEvolucao'] = new Chart(ctx, { type: 'line', data: { labels: mesesEixo, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0'} }, tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatBRL(ctx.raw) } }, datalabels: { anchor: 'end', align: 'top', offset: 4, color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)', font: { size: 10, weight: 'bold' }, display: 'auto', formatter: (val) => val > 0 ? formatShortBRL(val) : '' } }, scales: { y: { beginAtZero: true, ticks: { callback: (val) => 'R$ ' + (val/1000).toFixed(0) + 'k' } } } } });
+            chartInstances['chartEvolucao'] = new Chart(ctx, {
+                type: 'line',
+                data: { labels: mesesEixo, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } },
+                    plugins: {
+                        tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatBRL(ctx.raw) } },
+                        datalabels: { anchor: 'end', align: 'top', offset: 4, color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)', font: { size: 10, weight: 'bold' }, display: 'auto', formatter: (val) => val > 0 ? formatShortBRL(val) : '' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: (val) => 'R$ ' + (val/1000).toFixed(0) + 'k' } },
+                        y1: { display: mostrarFaturamento, position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { color: '#ffb300', callback: (val) => 'R$ ' + (val/1000000).toFixed(0) + 'M' } }
+                    }
+                }
+            });
         }
 
         function processarDadosTabela() {
