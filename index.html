@@ -4,18 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Curva ABC - Grupo RFK</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Sora', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
                     colors: {
-                        darkBg: '#0a0a0f', cardBg: '#1a1a24',
-                        accentGreen: '#00e676', accentBlue: '#2979ff',
-                        accentOrange: '#ff9100', accentPurple: '#b388ff'
+                        darkBg: '#0a0a0f', cardBg: '#14141c',
+                        accentGreen: '#2dd4a7', accentBlue: '#5b8def',
+                        accentOrange: '#f5944b', accentPurple: '#a480f2',
+                        accentRed: '#ef6f6f'
                     }
                 }
             }
@@ -24,66 +29,89 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -40px) scale(1.08); }
+            66% { transform: translate(-20px, 25px) scale(0.95); }
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.6s ease both; }
+
+        .orb { position: fixed; border-radius: 9999px; filter: blur(90px); opacity: 0.16; z-index: -1; pointer-events: none; }
+        .orb-1 { width: 500px; height: 500px; background: #2dd4a7; top: -10%; left: -5%; animation: float 26s ease-in-out infinite; }
+        .orb-2 { width: 480px; height: 480px; background: #5b8def; top: -5%; right: -8%; animation: float 30s ease-in-out infinite reverse; }
+        .orb-3 { width: 420px; height: 420px; background: #f5944b; bottom: -12%; left: 35%; animation: float 22s ease-in-out infinite; }
+
         body {
             background-color: #0a0a0f;
-            color: #e2e8f0;
-            background-image:
-                radial-gradient(ellipse 900px 500px at 12% -10%, rgba(41, 121, 255, 0.10), transparent 60%),
-                radial-gradient(ellipse 800px 500px at 100% 0%, rgba(0, 230, 118, 0.07), transparent 55%),
-                radial-gradient(ellipse 700px 600px at 50% 100%, rgba(255, 145, 0, 0.05), transparent 60%);
+            color: #f2f2f5;
             background-attachment: fixed;
+            overflow-x: hidden;
         }
         .card { 
-            background-color: #1a1a24; 
-            border: 1px solid rgba(255,255,255,0.06); 
+            background-color: #14141c; 
+            border: 1px solid rgba(255,255,255,0.07); 
             border-radius: 16px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
         }
-        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(41, 121, 255, 0.08); }
-        .glow-text { text-shadow: 0 0 12px rgba(41, 121, 255, 0.4); }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(0,0,0,0.35); background-color: #181820; }
+        .glow-text { text-shadow: 0 0 12px rgba(45, 212, 167, 0.35); }
+        .card-divider { border-top: 1px solid rgba(255,255,255,0.04); }
+
+        .kpi-bar {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 3px;
+        }
+        .icon-badge {
+            width: 30px; height: 30px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .icon-badge svg { width: 15px; height: 15px; }
+
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #0a0a0f; }
-        ::-webkit-scrollbar-thumb { background: #334; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #556; }
+        ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3a3a48; }
         
         .search-input {
-            background-color: #0a0a0f; border: 1px solid #374151; color: white;
-            padding: 8px 16px 8px 40px; border-radius: 8px; font-size: 14px;
+            background-color: #0a0a0f; border: 1px solid rgba(255,255,255,0.07); color: #f2f2f5;
+            padding: 8px 16px 8px 40px; border-radius: 10px; font-size: 14px;
             outline: none; transition: border-color 0.2s; width: 100%; max-width: 300px;
         }
-        .search-input:focus { border-color: #2979ff; }
+        .search-input:focus { border-color: #2dd4a7; }
         
         /* Spinner de carregamento */
         .loader {
-            border: 3px solid rgba(41, 121, 255, 0.2); border-top: 3px solid #2979ff;
+            border: 3px solid rgba(45, 212, 167, 0.2); border-top: 3px solid #2dd4a7;
             border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* ===== Filtro multi-seleção ===== */
         .multiselect-btn {
-            width: 100%; background-color: #0a0a0f; border: 1px solid #374151; color: white;
+            width: 100%; background-color: #0a0a0f; border: 1px solid rgba(255,255,255,0.07); color: #f2f2f5;
             font-size: 14px; border-radius: 10px; padding: 10px 12px;
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
             outline: none; transition: border-color 0.2s, box-shadow 0.2s; cursor: pointer;
         }
-        .multiselect-btn:hover { border-color: #4b5563; }
-        .multiselect-btn.active { border-color: #2979ff; box-shadow: 0 0 0 3px rgba(41,121,255,0.12); }
+        .multiselect-btn:hover { border-color: rgba(255,255,255,0.15); }
+        .multiselect-btn.active { border-color: #2dd4a7; box-shadow: 0 0 0 3px rgba(45,212,167,0.12); }
         .multiselect-btn span.ms-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-        .multiselect-btn i { flex-shrink: 0; transition: transform 0.2s ease; color: #6b7280; }
-        .multiselect-btn.active i { transform: rotate(180deg); color: #2979ff; }
+        .multiselect-btn svg { flex-shrink: 0; transition: transform 0.2s ease; color: #63637a; }
+        .multiselect-btn.active svg { transform: rotate(180deg); color: #2dd4a7; }
 
         [data-ms-wrapper] { z-index: 1; }
         [data-ms-wrapper].ms-active { z-index: 100; }
 
         .multiselect-panel {
             position: absolute; top: calc(100% + 8px); left: 0; z-index: 100; width: 100%; min-width: 220px;
-            background-color: #12121a; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(41,121,255,0.04);
+            background-color: #14141c; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(45,212,167,0.04);
             padding: 10px; animation: msPop 0.15s ease;
         }
         @keyframes msPop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
@@ -93,52 +121,58 @@
         }
         .multiselect-actions button {
             font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
-            color: #2979ff; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 4px;
+            color: #2dd4a7; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 4px;
         }
-        .multiselect-actions button:hover { color: #5b93ff; background: rgba(41,121,255,0.08); }
+        .multiselect-actions button:hover { color: #4de8bd; background: rgba(45,212,167,0.08); }
         .multiselect-options { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
         .ms-option {
             display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 8px;
-            cursor: pointer; font-size: 13px; color: #cbd5e1; transition: background-color 0.15s;
+            cursor: pointer; font-size: 13px; color: #a8a8b8; transition: background-color 0.15s;
         }
         .ms-option:hover { background-color: rgba(255,255,255,0.05); }
         .ms-option input[type="checkbox"] {
-            width: 15px; height: 15px; accent-color: #2979ff; cursor: pointer; flex-shrink: 0;
+            width: 15px; height: 15px; accent-color: #2dd4a7; cursor: pointer; flex-shrink: 0;
         }
         .hidden { display: none; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 font-sans antialiased">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
 
-    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+    <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 fade-up">
         <div>
-            <h1 class="text-3xl font-bold text-white tracking-tight glow-text flex items-center gap-2">
-                <i class="ph-fill ph-chart-polar text-accentBlue"></i>
+            <h1 class="text-3xl font-heading font-bold text-[#f2f2f5] tracking-tight glow-text flex items-center gap-3">
+                <span class="bg-white rounded-xl px-2.5 py-1.5 flex items-center justify-center shadow-[0_4px_16px_rgba(0,0,0,0.25)]">
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANcAAABiCAYAAADDekZzAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyVpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNi1jMTQ4IDc5LjE2NDAzNiwgMjAxOS8wOC8xMy0wMTowNjo1NyAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wTU09Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9tbS8iIHhtbG5zOnN0UmVmPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvc1R5cGUvUmVzb3VyY2VSZWYjIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6MzI5MzYzRThCRjcyMTFFREFENjVGMEM4N0M3RUExRjMiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6MzI5MzYzRTdCRjcyMTFFREFENjVGMEM4N0M3RUExRjMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIDIzLjEgKE1hY2ludG9zaCkiPiA8eG1wTU06RGVyaXZlZEZyb20gc3RSZWY6aW5zdGFuY2VJRD0ieG1wLmlpZDpGQTk1NjYzQkM1OTMxMUVDQTEyOEM0RDVENDA5OUMzOCIgc3RSZWY6ZG9jdW1lbnRJRD0ieG1wLmRpZDpGQTk1NjYzQ0M1OTMxMUVDQTEyOEM0RDVENDA5OUMzOCIvPiA8L3JkZjpEZXNjcmlwdGlvbj4gPC9yZGY6UkRGPiA8L3g6eG1wbWV0YT4gPD94cGFja2V0IGVuZD0iciI/Pg14TWUAABi5SURBVHja7F0J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" alt="Grupo RFK" class="h-8 w-auto">
+                </span>
                 RELATÓRIO CURVA ABC – GRUPO RFK
             </h1>
-            <p class="text-gray-400 text-sm mt-1 uppercase tracking-[0.15em] font-medium">Análise Executiva de Compras e Gestão de Insumos</p>
+            <p class="text-[#a8a8b8] text-sm mt-1 uppercase tracking-[0.15em] font-medium">Análise Executiva de Compras e Gestão de Insumos</p>
         </div>
         
         <div class="flex flex-wrap items-center gap-4">
             <!-- BOTÃO TOGGLE PARA ATIVAR FATURAMENTO -->
-            <label class="flex items-center gap-2 cursor-pointer bg-[#1a1a24] border border-[#2979ff]/40 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-200 hover:border-[#2979ff] transition-all shadow-[0_0_15px_rgba(41,121,255,0.15)]">
-                <input type="checkbox" id="toggleFaturamento" class="w-4 h-4 accent-accentBlue cursor-pointer" checked>
+            <label class="flex items-center gap-2 cursor-pointer bg-[#14141c] border border-[#2dd4a7]/40 px-4 py-2.5 rounded-xl text-sm font-medium text-[#f2f2f5] hover:border-[#2dd4a7] transition-all shadow-[0_0_15px_rgba(45,212,167,0.15)]">
+                <input type="checkbox" id="toggleFaturamento" class="w-4 h-4 accent-accentGreen cursor-pointer" checked>
                 FATURAMENTO
             </label>
             
-            <div id="statusCarregamento" class="flex items-center gap-3 bg-gray-800/50 border border-gray-700 px-5 py-2.5 rounded-xl font-medium text-sm text-gray-300">
+            <div id="statusCarregamento" class="flex items-center gap-3 bg-[#14141c] border border-[rgba(255,255,255,0.07)] px-5 py-2.5 rounded-xl font-medium text-sm text-[#a8a8b8]">
                 <div class="loader" id="loaderIcon"></div>
                 <span id="statusTexto">Sincronizando CSVs...</span>
             </div>
         </div>
     </header>
 
-    <section class="card p-5 mb-8 flex flex-wrap gap-5 items-end border border-gray-800 relative z-40">
+    <section class="card p-5 mb-8 flex flex-wrap gap-5 items-end relative z-40 fade-up" style="animation-delay:0.02s">
         <div class="flex-1 min-w-[160px] relative" data-ms-wrapper="Ano">
-            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Ano</label>
+            <label class="block text-xs font-bold text-[#a8a8b8] mb-1.5 uppercase tracking-wider">Ano</label>
             <button type="button" id="btnFilterAno" class="multiselect-btn">
                 <span class="ms-label" id="labelFilterAno">Todos</span>
-                <i class="ph ph-caret-down"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class=""><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div id="panelFilterAno" class="multiselect-panel hidden">
                 <div class="multiselect-actions">
@@ -149,10 +183,10 @@
             </div>
         </div>
         <div class="flex-1 min-w-[160px] relative" data-ms-wrapper="Mes">
-            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Mês</label>
+            <label class="block text-xs font-bold text-[#a8a8b8] mb-1.5 uppercase tracking-wider">Mês</label>
             <button type="button" id="btnFilterMes" class="multiselect-btn">
                 <span class="ms-label" id="labelFilterMes">Todos</span>
-                <i class="ph ph-caret-down"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class=""><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div id="panelFilterMes" class="multiselect-panel hidden">
                 <div class="multiselect-actions">
@@ -163,10 +197,10 @@
             </div>
         </div>
         <div class="flex-1 min-w-[160px] relative" data-ms-wrapper="Filial">
-            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Filial</label>
+            <label class="block text-xs font-bold text-[#a8a8b8] mb-1.5 uppercase tracking-wider">Filial</label>
             <button type="button" id="btnFilterFilial" class="multiselect-btn">
                 <span class="ms-label" id="labelFilterFilial">Todos</span>
-                <i class="ph ph-caret-down"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class=""><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div id="panelFilterFilial" class="multiselect-panel hidden">
                 <div class="multiselect-actions">
@@ -177,10 +211,10 @@
             </div>
         </div>
         <div class="flex-1 min-w-[160px] relative" data-ms-wrapper="Grupo">
-            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Grupo</label>
+            <label class="block text-xs font-bold text-[#a8a8b8] mb-1.5 uppercase tracking-wider">Grupo</label>
             <button type="button" id="btnFilterGrupo" class="multiselect-btn">
                 <span class="ms-label" id="labelFilterGrupo">Todos</span>
-                <i class="ph ph-caret-down"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class=""><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div id="panelFilterGrupo" class="multiselect-panel hidden">
                 <div class="multiselect-actions">
@@ -191,10 +225,10 @@
             </div>
         </div>
         <div class="flex-1 min-w-[160px] relative" data-ms-wrapper="Classe">
-            <label class="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">Classe</label>
+            <label class="block text-xs font-bold text-[#a8a8b8] mb-1.5 uppercase tracking-wider">Classe</label>
             <button type="button" id="btnFilterClasse" class="multiselect-btn">
                 <span class="ms-label" id="labelFilterClasse">Todos</span>
-                <i class="ph ph-caret-down"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class=""><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
             <div id="panelFilterClasse" class="multiselect-panel hidden">
                 <div class="multiselect-actions">
@@ -207,102 +241,159 @@
     </section>
 
     <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="card p-6 relative overflow-hidden">
+        <div class="card p-6 relative overflow-hidden fade-up" style="animation-delay:0.05s">
             <div class="absolute top-0 right-0 w-24 h-24 bg-accentBlue/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p class="text-sm font-semibold text-gray-400 mb-1">Gasto Total (Atual)</p>
-            <h2 id="kpiTotal" class="text-3xl font-bold text-white mb-2">R$ 0,00</h2>
+            <div class="icon-badge bg-accentBlue/14 text-accentBlue mb-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></div>
+            <p class="text-sm font-semibold text-[#a8a8b8] mb-1">Gasto Total (Atual)</p>
+            <h2 id="kpiTotal" class="text-3xl font-heading font-bold text-[#f2f2f5] mb-2 tracking-[-0.01em]">R$ 0,00</h2>
             <div class="flex items-center text-sm mt-3">
-                <span id="kpiVar" class="text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs">--%</span>
-                <span class="text-gray-500 text-xs">vs. Ano Anterior <span id="kpiPeriodoLabel" class="font-medium text-gray-400"></span></span>
+                <span id="kpiVar" class="text-[#a8a8b8] flex items-center bg-white/5 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs">--%</span>
+                <span class="text-[#63637a] text-xs">vs. Ano Anterior <span id="kpiPeriodoLabel" class="font-medium text-[#a8a8b8]"></span></span>
             </div>
             <!-- Div para a porcentagem de faturamento -->
             <div id="kpiFatPercent"></div>
+            <div class="kpi-bar" style="background: linear-gradient(90deg, #5b8def, transparent);"></div>
         </div>
-        <div class="card p-6 relative overflow-hidden">
+        <div class="card p-6 relative overflow-hidden fade-up" style="animation-delay:0.1s">
             <div class="absolute top-0 right-0 w-24 h-24 bg-accentGreen/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p class="text-sm font-semibold text-gray-400 mb-1">Ticket Médio / Pedido</p>
-            <h2 id="kpiTicket" class="text-3xl font-bold text-white mb-2">R$ 0,00</h2>
-            <div class="flex items-center text-sm mt-3"><span class="text-gray-400 text-xs">Média por transação filtrada</span></div>
+            <div class="icon-badge bg-accentGreen/14 text-accentGreen mb-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg></div>
+            <p class="text-sm font-semibold text-[#a8a8b8] mb-1">Ticket Médio / Pedido</p>
+            <h2 id="kpiTicket" class="text-3xl font-heading font-bold text-[#f2f2f5] mb-2 tracking-[-0.01em]">R$ 0,00</h2>
+            <div class="flex items-center text-sm mt-3"><span class="text-[#a8a8b8] text-xs">Média por transação filtrada</span></div>
+            <div class="kpi-bar" style="background: linear-gradient(90deg, #2dd4a7, transparent);"></div>
         </div>
-        <div class="card p-6 relative overflow-hidden">
+        <div class="card p-6 relative overflow-hidden fade-up" style="animation-delay:0.15s">
             <div class="absolute top-0 right-0 w-24 h-24 bg-accentOrange/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p class="text-sm font-semibold text-gray-400 mb-1">Qtd. de Pedidos / Linhas</p>
-            <h2 id="kpiQtd" class="text-3xl font-bold text-white mb-2">0</h2>
-            <div class="flex items-center text-sm mt-3"><span class="text-gray-400 text-xs">Registros totais no período</span></div>
+            <div class="icon-badge bg-accentOrange/14 text-accentOrange mb-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg></div>
+            <p class="text-sm font-semibold text-[#a8a8b8] mb-1">Qtd. de Pedidos / Linhas</p>
+            <h2 id="kpiQtd" class="text-3xl font-heading font-bold text-[#f2f2f5] mb-2 tracking-[-0.01em]">0</h2>
+            <div class="flex items-center text-sm mt-3"><span class="text-[#a8a8b8] text-xs">Registros totais no período</span></div>
+            <div class="kpi-bar" style="background: linear-gradient(90deg, #f5944b, transparent);"></div>
         </div>
-        <div class="card p-6 relative overflow-hidden">
+        <div class="card p-6 relative overflow-hidden fade-up" style="animation-delay:0.2s">
             <div class="absolute top-0 right-0 w-24 h-24 bg-accentPurple/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <p class="text-sm font-semibold text-gray-400 mb-1">Gasto Médio Mensal</p>
-            <h2 id="kpiMediaMes" class="text-3xl font-bold text-white mb-2">R$ 0,00</h2>
-            <div class="flex items-center text-sm mt-3"><span class="text-gray-400 text-xs">Distribuição média</span></div>
+            <div class="icon-badge bg-accentPurple/14 text-accentPurple mb-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+            <p class="text-sm font-semibold text-[#a8a8b8] mb-1">Gasto Médio Mensal</p>
+            <h2 id="kpiMediaMes" class="text-3xl font-heading font-bold text-[#f2f2f5] mb-2 tracking-[-0.01em]">R$ 0,00</h2>
+            <div class="flex items-center text-sm mt-3"><span class="text-[#a8a8b8] text-xs">Distribuição média</span></div>
+            <div class="kpi-bar" style="background: linear-gradient(90deg, #a480f2, transparent);"></div>
         </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 fade-up" style="animation-delay:0.25s">
         <div class="card p-6">
-            <h3 class="text-lg font-semibold text-white mb-1">Gasto por Classe</h3>
-            <p class="text-xs text-gray-500 mb-4">Proporção de custos alocados nas categorias (Top 7).</p>
+            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Classe</h3>
+            <p class="text-xs text-[#63637a] mb-4">Proporção de custos alocados nas categorias (Top 7).</p>
             <div class="relative h-[300px] w-full flex justify-center"><canvas id="chartClasse"></canvas></div>
         </div>
         <div class="card p-6">
-            <h3 class="text-lg font-semibold text-white mb-1">Gasto por Filial</h3>
-            <p class="text-xs text-gray-500 mb-4">Volume total de compra consolidado por estado.</p>
+            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Filial</h3>
+            <p class="text-xs text-[#63637a] mb-4">Volume total de compra consolidado por estado.</p>
             <div class="relative h-[300px] w-full"><canvas id="chartFilial"></canvas></div>
         </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 fade-up" style="animation-delay:0.3s">
         <div class="card p-6">
-            <h3 class="text-lg font-semibold text-white mb-1">Gasto x Faturamento / Mês</h3>
-            <p class="text-xs text-gray-500 mb-4">Total de gasto acumulado por mês do ano.</p>
-            <div class="relative h-[300px] w-full"><canvas id="chartMediaMes"></canvas></div>
+            <div class="flex items-start justify-between gap-3 mb-1">
+                <div>
+                    <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto x Faturamento / Mês</h3>
+                    <p class="text-xs text-[#63637a]">Total de gasto acumulado por mês do ano.</p>
+                </div>
+                <div id="percentInsumoFat"></div>
+            </div>
+            <div class="relative h-[300px] w-full mt-3"><canvas id="chartMediaMes"></canvas></div>
         </div>
         <div class="card p-6">
-            <h3 class="text-lg font-semibold text-white mb-1">Gasto por Componente (Top 10)</h3>
-            <p class="text-xs text-gray-500 mb-4">Maiores insumos direcionadores de custos.</p>
+            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Componente (Top 10)</h3>
+            <p class="text-xs text-[#63637a] mb-4">Maiores insumos direcionadores de custos.</p>
             <div class="relative h-[300px] w-full"><canvas id="chartComponente"></canvas></div>
         </div>
     </section>
 
-    <section class="card p-6 mb-8">
-        <h3 class="text-lg font-semibold text-white mb-1">Evolução do Gasto: Ano x Ano</h3>
-        <p class="text-xs text-gray-500 mb-4">Comparativo mensal do comportamento de compras (e faturamento) ao longo dos anos.</p>
+    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.35s">
+        <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Evolução do Gasto: Ano x Ano</h3>
+        <p class="text-xs text-[#63637a] mb-4">Comparativo mensal do comportamento de compras (e faturamento) ao longo dos anos.</p>
         <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
     </section>
 
-    <section class="card p-6 mb-8">
+    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.37s">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+            <div>
+                <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Projeção: Impacto do Faturamento no Insumo</h3>
+                <p class="text-xs text-[#63637a]">Simule um crescimento de faturamento e veja o impacto proporcional no custo de insumos, mantendo a relação insumo/faturamento do período filtrado.</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <label for="inputCrescimentoFat" class="text-xs text-[#a8a8b8] font-mono whitespace-nowrap">Crescimento do Faturamento</label>
+                <div class="relative">
+                    <input type="number" id="inputCrescimentoFat" value="10" step="0.5" class="search-input w-24 !pl-3 pr-7 text-right">
+                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#63637a] pointer-events-none">%</span>
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white/[0.03] border border-[rgba(255,255,255,0.06)] rounded-xl p-4">
+                <p class="text-xs text-[#a8a8b8] mb-1">Faturamento Atual</p>
+                <p id="projFatAtual" class="text-xl font-heading font-bold text-[#f2f2f5]">R$ 0,00</p>
+            </div>
+            <div class="bg-accentBlue/[0.08] border border-accentBlue/20 rounded-xl p-4">
+                <p class="text-xs text-accentBlue mb-1">Faturamento Projetado</p>
+                <p id="projFatProjetado" class="text-xl font-heading font-bold text-[#f2f2f5]">R$ 0,00</p>
+            </div>
+            <div class="bg-white/[0.03] border border-[rgba(255,255,255,0.06)] rounded-xl p-4">
+                <p class="text-xs text-[#a8a8b8] mb-1">Insumo Atual</p>
+                <p id="projInsumoAtual" class="text-xl font-heading font-bold text-[#f2f2f5]">R$ 0,00</p>
+            </div>
+            <div class="bg-accentOrange/[0.08] border border-accentOrange/20 rounded-xl p-4">
+                <p class="text-xs text-accentOrange mb-1">Insumo Projetado</p>
+                <p id="projInsumoProjetado" class="text-xl font-heading font-bold text-[#f2f2f5]">R$ 0,00</p>
+            </div>
+        </div>
+        <div class="mt-4 pt-4 card-divider flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs text-[#63637a]">Baseado na relação insumo/faturamento do período filtrado (<span id="projRatioAtual" class="text-[#a8a8b8] font-mono">0%</span>). Ajuste os filtros no topo para simular cenários específicos (ano, filial, categoria etc.).</p>
+            <div class="text-xs bg-accentOrange/14 text-accentOrange px-3 py-1.5 rounded-lg font-mono font-semibold border border-accentOrange/30 whitespace-nowrap">
+                Impacto adicional: <span id="projImpacto">R$ 0,00</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.4s">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
-                <h3 class="text-lg font-semibold text-white mb-1">Custo Total Por Insumo (Curva ABC)</h3>
-                <p class="text-xs text-gray-500">Detalhamento dos insumos geradores de custos.</p>
+                <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Custo Total Por Insumo (Curva ABC)</h3>
+                <p class="text-xs text-[#63637a]">Detalhamento dos insumos geradores de custos.</p>
             </div>
             <div class="relative">
-                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#63637a]"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" id="searchInput" class="search-input" placeholder="Buscar componente ou classe...">
             </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="border-b border-gray-700 text-xs text-gray-400">
+                    <tr class="border-b border-[rgba(255,255,255,0.07)] text-xs text-[#a8a8b8] font-mono">
                         <th class="py-3 px-4 font-semibold uppercase">Componente</th>
                         <th class="py-3 px-4 font-semibold uppercase">Classe</th>
                         <th class="py-3 px-4 font-semibold uppercase">Grupo</th>
+                        <th class="py-3 px-4 font-semibold uppercase">Último Fornecedor</th>
+                        <th class="py-3 px-4 font-semibold uppercase text-right">Preço Médio</th>
                         <th class="py-3 px-4 font-semibold uppercase text-right">Qtd. Pedidos</th>
                         <th class="py-3 px-4 font-semibold uppercase text-right">Custo Total</th>
+                        <th class="py-3 px-4 font-semibold uppercase text-center">Curva</th>
                     </tr>
                 </thead>
                 <tbody id="tabelaRanking" class="text-sm">
-                    <tr><td colspan="5" class="py-4 text-center text-gray-500">Sincronizando dados...</td></tr>
+                    <tr><td colspan="8" class="py-4 text-center text-[#63637a]">Sincronizando dados...</td></tr>
                 </tbody>
             </table>
         </div>
-        <div class="mt-4 flex items-center justify-between border-t border-gray-800 pt-4">
-            <p class="text-xs text-gray-400" id="tableInfo">Mostrando 0 itens</p>
+        <div class="mt-4 flex items-center justify-between card-divider pt-4">
+            <p class="text-xs text-[#a8a8b8]" id="tableInfo">Mostrando 0 itens</p>
             <div class="flex items-center gap-2">
-                <button id="btnPrev" class="px-3 py-1.5 text-xs font-medium text-white bg-gray-800 hover:bg-gray-700 rounded transition-colors disabled:opacity-50">Anterior</button>
-                <span id="pageIndicator" class="text-xs text-gray-300 font-medium px-2">Página 1</span>
-                <button id="btnNext" class="px-3 py-1.5 text-xs font-medium text-white bg-gray-800 hover:bg-gray-700 rounded transition-colors disabled:opacity-50">Próxima</button>
+                <button id="btnPrev" class="px-3 py-1.5 text-xs font-medium text-[#f2f2f5] bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50">Anterior</button>
+                <span id="pageIndicator" class="text-xs text-[#a8a8b8] font-mono font-medium px-2">Página 1</span>
+                <button id="btnNext" class="px-3 py-1.5 text-xs font-medium text-[#f2f2f5] bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50">Próxima</button>
             </div>
         </div>
     </section>
@@ -319,7 +410,7 @@
         let tabelaCompleta = [];
         let tabelaFiltrada = [];
         let currentPage = 1;
-        const itemsPerPage = 50;
+        const itemsPerPage = 25;
 
         const formatBRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
         const formatShortBRL = (value) => {
@@ -329,12 +420,19 @@
             return 'R$ ' + value.toFixed(0);
         };
 
-        const colorsArr = ['#2979ff', '#00e676', '#ff9100', '#b388ff', '#ff1744', '#00e5ff', '#ffca28', '#26a69a'];
+        const colorsArr = ['#2dd4a7', '#5b8def', '#f5944b', '#a480f2', '#ef6f6f', '#4fd1e8', '#e8c93a', '#7dd3fc'];
         const mesesOrdenados = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
         
-        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.color = '#a8a8b8';
         Chart.defaults.font.family = 'Inter';
         Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.05)';
+        Chart.defaults.plugins.tooltip.backgroundColor = '#1a1a24';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.12)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.cornerRadius = 10;
+        Chart.defaults.plugins.tooltip.padding = 10;
+        Chart.defaults.plugins.tooltip.titleFont = { family: 'Inter', weight: '600' };
+        Chart.defaults.plugins.tooltip.bodyFont = { family: 'JetBrains Mono' };
 
         // Rótulos inteligentes com sombreamento corporativo e antienchimento
         const defaultDataLabelsConfig = {
@@ -353,8 +451,8 @@
                 if(dadosInsumosOk && dadosFaturamentoOk) {
                     document.getElementById('loaderIcon').style.display = 'none';
                     const statusText = document.getElementById('statusTexto');
-                    statusText.innerHTML = '<i class="ph-fill ph-check-circle text-accentGreen text-lg mr-1"></i> Bases Sincronizadas';
-                    statusText.classList.replace('text-gray-300', 'text-accentGreen');
+                    statusText.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accentGreen mr-1" style="display:inline-block;vertical-align:-3px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Bases Sincronizadas';
+                    statusText.classList.replace('text-[#a8a8b8]', 'text-accentGreen');
                     
                     preencherFiltros();
                     aplicarFiltros(); 
@@ -384,11 +482,17 @@
         function processarDadosInsumos(data) {
             globalData = data.filter(d => d['CUSTO TOTAL (ATUAL)'] != null).map(d => {
                 let mesStr = String(d['MÊS']).toUpperCase().trim();
+                let custoUndRaw = d['CUSTO UND (ATUAL)'];
+                let custoUnd = 0;
+                if (typeof custoUndRaw === 'number') { custoUnd = custoUndRaw; }
+                else if (typeof custoUndRaw === 'string') { custoUnd = parseFloat(custoUndRaw.replace(/\./g, '').replace(',', '.')) || 0; }
                 return {
                     estado: String(d['ESTADO'] || 'N/A').trim(),
                     componente: String(d['DESC. COMPONENTE'] || 'N/A').trim(),
                     classe: String(d['CLASSE'] || 'N/A').trim(),
                     grupo: String(d['GRUPO'] || 'N/A').trim(),
+                    fornecedor: String(d['FORNECEDOR'] || 'N/A').trim(),
+                    custoUnd: custoUnd,
                     custoTotal: parseFloat(d['CUSTO TOTAL (ATUAL)']) || 0,
                     ano: String(d['ANO']), mes: mesStr, mesIndex: mesesOrdenados.indexOf(mesStr) 
                 };
@@ -567,7 +671,7 @@
             if(isFaturamentoAtivo && totalFat > 0) {
                 const percent = ((total / totalFat) * 100).toFixed(1);
                 kpiFatEl.innerHTML = `
-                    <div class="mt-3 text-[11px] bg-[#2979ff]/15 text-accentBlue px-2.5 py-1.5 rounded inline-block font-semibold border border-[#2979ff]/30 tracking-wide uppercase">
+                    <div class="mt-3 text-[11px] bg-[#2dd4a7]/15 text-accentGreen px-2.5 py-1.5 rounded inline-block font-mono font-semibold border border-[#2dd4a7]/30 tracking-wide uppercase">
                         Custo equivale a ${percent}% do faturamento (${formatShortBRL(totalFat)})
                     </div>
                 `;
@@ -605,24 +709,45 @@
                 if(totalAnterior > 0) {
                     const variacao = ((total - totalAnterior) / totalAnterior) * 100;
                     if(variacao > 0) {
-                        varContainer.innerHTML = `<i class="ph-bold ph-trend-up mr-1"></i> +${variacao.toFixed(1)}%`;
-                        varContainer.className = "text-red-400 flex items-center bg-red-400/10 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                        varContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;margin-right:4px;vertical-align:-1px"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> +${variacao.toFixed(1)}%`;
+                        varContainer.className = "text-accentRed flex items-center bg-accentRed/14 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
                     } else {
-                        varContainer.innerHTML = `<i class="ph-bold ph-trend-down mr-1"></i> ${variacao.toFixed(1)}%`;
-                        varContainer.className = "text-accentGreen flex items-center bg-accentGreen/10 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                        varContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;margin-right:4px;vertical-align:-1px"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg> ${variacao.toFixed(1)}%`;
+                        varContainer.className = "text-accentGreen flex items-center bg-accentGreen/14 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
                     }
                 } else {
                     varContainer.innerHTML = `--%`;
-                    varContainer.className = "text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                    varContainer.className = "text-[#a8a8b8] flex items-center bg-white/5 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
                 }
             } else {
                 document.getElementById('kpiPeriodoLabel').innerText = "";
                 document.getElementById('kpiVar').innerHTML = `--%`;
-                document.getElementById('kpiVar').className = "text-gray-400 flex items-center bg-gray-800 px-2 py-0.5 rounded-md mr-2 font-medium text-xs";
+                document.getElementById('kpiVar').className = "text-[#a8a8b8] flex items-center bg-white/5 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
             }
 
-            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); processarDadosTabela();
+            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); processarDadosTabela(); atualizarProjecao();
         }
+
+        function atualizarProjecao() {
+            const totalInsumo = filteredData.reduce((acc, val) => acc + val.custoTotal, 0);
+            const totalFat = faturamentoFiltrado.reduce((acc, val) => acc + val.faturamento, 0);
+            const crescimento = parseFloat(document.getElementById('inputCrescimentoFat').value);
+            const taxa = isNaN(crescimento) ? 0 : crescimento / 100;
+
+            const fatProjetado = totalFat * (1 + taxa);
+            const insumoProjetado = totalInsumo * (1 + taxa);
+            const impacto = insumoProjetado - totalInsumo;
+            const ratio = totalFat > 0 ? ((totalInsumo / totalFat) * 100).toFixed(1) + '%' : 'N/D';
+
+            document.getElementById('projFatAtual').innerText = totalFat > 0 ? formatBRL(totalFat) : 'Sem dados';
+            document.getElementById('projFatProjetado').innerText = totalFat > 0 ? formatBRL(fatProjetado) : 'Sem dados';
+            document.getElementById('projInsumoAtual').innerText = formatBRL(totalInsumo);
+            document.getElementById('projInsumoProjetado').innerText = formatBRL(insumoProjetado);
+            document.getElementById('projRatioAtual').innerText = ratio;
+            document.getElementById('projImpacto').innerText = (impacto >= 0 ? '+ ' : '- ') + formatBRL(Math.abs(impacto));
+        }
+
+        document.getElementById('inputCrescimentoFat').addEventListener('input', atualizarProjecao);
 
         function destroyChart(id) { if (chartInstances[id]) chartInstances[id].destroy(); }
         function groupBy(array, key) { return array.reduce((r, c) => { (r[c[key]] = r[c[key]] || []).push(c); return r; }, {}); }
@@ -645,7 +770,7 @@
             const ctx = document.getElementById('chartFilial').getContext('2d');
             chartInstances['chartFilial'] = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#00e676', borderRadius: 4 }] },
+                data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#2dd4a7', borderRadius: 4 }] },
                 options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } }
             });
         }
@@ -660,11 +785,22 @@
 
             const isFatActive = document.getElementById('toggleFaturamento').checked;
             
-            const datasets = [{ label: 'Gasto Insumos', data: dataInsumos, backgroundColor: '#ff9100', borderRadius: 4 }];
-            if (isFatActive) { datasets.push({ label: 'Faturamento', data: dataFat, backgroundColor: '#2979ff', borderRadius: 4 }); }
+            const datasets = [{ label: 'Gasto Insumos', data: dataInsumos, backgroundColor: '#f5944b', borderRadius: 4 }];
+            if (isFatActive) { datasets.push({ label: 'Faturamento', data: dataFat, backgroundColor: '#5b8def', borderRadius: 4 }); }
+
+            // Percentual de insumos vs faturamento no período filtrado
+            const percentEl = document.getElementById('percentInsumoFat');
+            const totalInsumosPeriodo = dataInsumos.reduce((a, b) => a + b, 0);
+            const totalFatPeriodo = dataFat.reduce((a, b) => a + b, 0);
+            if (isFatActive && totalFatPeriodo > 0) {
+                const pctPeriodo = ((totalInsumosPeriodo / totalFatPeriodo) * 100).toFixed(1);
+                percentEl.innerHTML = `<div class="text-[11px] bg-[#5b8def]/14 text-accentBlue px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1 font-mono font-semibold border border-[#5b8def]/30 whitespace-nowrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg> Insumos = ${pctPeriodo}% do Fat.</div>`;
+            } else {
+                percentEl.innerHTML = '';
+            }
 
             const ctx = document.getElementById('chartMediaMes').getContext('2d');
-            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0'} }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0'} }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw), afterBody: (items) => { if (!isFatActive) return ''; const idx = items[0].dataIndex; const insumo = dataInsumos[idx]; const fat = dataFat[idx]; if (fat > 0) { return [`Insumos = ${((insumo / fat) * 100).toFixed(1)}% do faturamento`]; } return ''; } } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
         function renderChartComponente() {
@@ -673,7 +809,7 @@
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0)).slice(0, 10);
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartComponente').getContext('2d');
-            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#b388ff', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#a480f2', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
         function renderChartEvolucao() {
@@ -721,7 +857,26 @@
 
         function processarDadosTabela() {
             const agrupado = groupBy(filteredData, 'componente');
-            tabelaCompleta = Object.keys(agrupado).map(comp => { const itens = agrupado[comp]; return { componente: comp, classe: itens[0].classe, grupo: itens[0].grupo, qtd: itens.length, custo: itens.reduce((acc, val) => acc + val.custoTotal, 0) }; }).sort((a, b) => b.custo - a.custo);
+            tabelaCompleta = Object.keys(agrupado).map(comp => {
+                const itens = agrupado[comp];
+                const precosValidos = itens.map(i => i.custoUnd).filter(v => v > 0);
+                const precoMedio = precosValidos.length ? precosValidos.reduce((a, b) => a + b, 0) / precosValidos.length : 0;
+                const ultimoItem = itens.reduce((maisRecente, atual) => {
+                    const chaveAtual = parseInt(atual.ano) * 100 + atual.mesIndex;
+                    const chaveRecente = parseInt(maisRecente.ano) * 100 + maisRecente.mesIndex;
+                    return chaveAtual >= chaveRecente ? atual : maisRecente;
+                }, itens[0]);
+                return { componente: comp, classe: itens[0].classe, grupo: itens[0].grupo, qtd: itens.length, custo: itens.reduce((acc, val) => acc + val.custoTotal, 0), precoMedio: precoMedio, ultimoFornecedor: ultimoItem.fornecedor };
+            }).sort((a, b) => b.custo - a.custo);
+
+            const custoTotalGeral = tabelaCompleta.reduce((acc, item) => acc + item.custo, 0);
+            let acumulado = 0;
+            tabelaCompleta.forEach(item => {
+                acumulado += item.custo;
+                const pctAcumulado = custoTotalGeral > 0 ? acumulado / custoTotalGeral : 0;
+                item.classeABC = pctAcumulado <= 0.8 ? 'A' : (pctAcumulado <= 0.95 ? 'B' : 'C');
+            });
+
             currentPage = 1; document.getElementById('searchInput').value = ''; aplicarBuscaETabela();
         }
 
@@ -740,15 +895,19 @@
             const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage;
             const itensPagina = tabelaFiltrada.slice(startIndex, endIndex);
 
-            if(totalItems === 0) { tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center text-gray-500">Nenhum insumo encontrado.</td></tr>'; } 
+            if(totalItems === 0) { tbody.innerHTML = '<tr><td colspan="8" class="py-4 text-center text-[#63637a]">Nenhum insumo encontrado.</td></tr>'; } 
             else {
+                const abcStyles = { A: 'bg-accentGreen/14 text-accentGreen border-accentGreen/30', B: 'bg-accentOrange/14 text-accentOrange border-accentOrange/30', C: 'bg-accentRed/14 text-accentRed border-accentRed/30' };
                 tbody.innerHTML = itensPagina.map(l => `
-                    <tr class="border-b border-gray-800/60 hover:bg-gray-800/40 transition-colors">
-                        <td class="py-3 px-4 font-medium text-white">${l.componente}</td>
-                        <td class="py-3 px-4 text-gray-400 text-xs">${l.classe}</td>
-                        <td class="py-3 px-4 text-gray-400 text-xs">${l.grupo}</td>
-                        <td class="py-3 px-4 text-right text-gray-300">${l.qtd}</td>
-                        <td class="py-3 px-4 text-right font-semibold text-accentGreen">${formatBRL(l.custo)}</td>
+                    <tr class="border-b border-[rgba(255,255,255,0.04)] hover:bg-white/5 transition-colors">
+                        <td class="py-3 px-4 font-medium text-[#f2f2f5]">${l.componente}</td>
+                        <td class="py-3 px-4 text-[#a8a8b8] text-xs font-mono">${l.classe}</td>
+                        <td class="py-3 px-4 text-[#a8a8b8] text-xs font-mono">${l.grupo}</td>
+                        <td class="py-3 px-4 text-[#a8a8b8] text-xs font-mono">${l.ultimoFornecedor}</td>
+                        <td class="py-3 px-4 text-right text-[#a8a8b8] font-mono">${formatBRL(l.precoMedio)}</td>
+                        <td class="py-3 px-4 text-right text-[#a8a8b8] font-mono">${l.qtd}</td>
+                        <td class="py-3 px-4 text-right font-mono font-semibold text-accentGreen">${formatBRL(l.custo)}</td>
+                        <td class="py-3 px-4 text-center"><span class="inline-flex items-center justify-center w-6 h-6 rounded-md border font-mono font-bold text-xs ${abcStyles[l.classeABC]}">${l.classeABC}</span></td>
                     </tr>
                 `).join('');
             }
