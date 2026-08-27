@@ -515,6 +515,10 @@
                 let custoUnd = 0;
                 if (typeof custoUndRaw === 'number') { custoUnd = custoUndRaw; }
                 else if (typeof custoUndRaw === 'string') { custoUnd = parseFloat(custoUndRaw.replace(/\./g, '').replace(',', '.')) || 0; }
+                let custoTotalRaw = d['CUSTO TOTAL (ATUAL)'];
+                let custoTotal = 0;
+                if (typeof custoTotalRaw === 'number') { custoTotal = custoTotalRaw; }
+                else if (typeof custoTotalRaw === 'string') { custoTotal = parseFloat(custoTotalRaw.replace(/\./g, '').replace(',', '.')) || 0; }
                 return {
                     estado: String(d['ESTADO'] || 'N/A').trim(),
                     componente: String(d['DESC. COMPONENTE'] || 'N/A').trim(),
@@ -522,7 +526,7 @@
                     grupo: String(d['GRUPO'] || 'N/A').trim(),
                     fornecedor: String(d['FORNECEDOR'] || 'N/A').trim(),
                     custoUnd: custoUnd,
-                    custoTotal: parseFloat(d['CUSTO TOTAL (ATUAL)']) || 0,
+                    custoTotal: custoTotal,
                     ano: String(d['ANO']), mes: mesStr, mesIndex: mesesOrdenados.indexOf(mesStr) 
                 };
             });
