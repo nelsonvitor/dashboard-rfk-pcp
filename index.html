@@ -327,7 +327,7 @@
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.35s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x Previsão</h3>
-        <p class="text-xs text-[#63637a] mb-4">Percentual do custo de insumo em relação ao Faturamento e à Previsão de faturamento, por mês.</p>
+        <p class="text-xs text-[#63637a] mb-4">Percentual do custo de insumo em relação ao Faturamento e à Previsão, e do Faturamento em relação à Previsão, por mês.</p>
         <div class="relative h-[300px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
     </section>
 
@@ -954,6 +954,7 @@
 
             const pctFat = mesesEixo.map((_, i) => dataFat[i] > 0 ? (dataInsumo[i] / dataFat[i]) * 100 : null);
             const pctPrev = mesesEixo.map((_, i) => dataPrev[i] > 0 ? (dataInsumo[i] / dataPrev[i]) * 100 : null);
+            const pctFatPrev = mesesEixo.map((_, i) => dataPrev[i] > 0 ? (dataFat[i] / dataPrev[i]) * 100 : null);
 
             const ctx = document.getElementById('chartInsumoPrevisao').getContext('2d');
             chartInstances['chartInsumoPrevisao'] = new Chart(ctx, {
@@ -976,6 +977,14 @@
                             fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [6, 4],
                             pointStyle: 'rectRot', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#e8c93a', pointBorderWidth: 2,
                             spanGaps: false
+                        },
+                        {
+                            label: 'Faturamento vs Previsão',
+                            data: pctFatPrev,
+                            borderColor: '#a480f2', backgroundColor: 'rgba(164,128,242,0.12)',
+                            fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [2, 3],
+                            pointStyle: 'triangle', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#a480f2', pointBorderWidth: 2,
+                            spanGaps: false
                         }
                     ]
                 },
@@ -990,10 +999,17 @@
                                 label: (ctx) => {
                                     if (ctx.raw === null) return ` ${ctx.dataset.label}: sem dados`;
                                     const idx = ctx.dataIndex;
-                                    const isPrev = ctx.dataset.label.includes('Previsão');
-                                    const base = isPrev ? dataPrev[idx] : dataFat[idx];
-                                    const baseLabel = isPrev ? 'Previsão' : 'Faturamento';
-                                    return ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}% (Insumo ${formatBRL(dataInsumo[idx])} / ${baseLabel} ${formatBRL(base)})`;
+                                    let numLabel, numVal, denLabel, denVal;
+                                    if (ctx.dataset.label === 'Faturamento vs Previsão') {
+                                        numLabel = 'Faturamento'; numVal = dataFat[idx];
+                                        denLabel = 'Previsão'; denVal = dataPrev[idx];
+                                    } else {
+                                        numLabel = 'Insumo'; numVal = dataInsumo[idx];
+                                        const isPrev = ctx.dataset.label.includes('Previsão');
+                                        denLabel = isPrev ? 'Previsão' : 'Faturamento';
+                                        denVal = isPrev ? dataPrev[idx] : dataFat[idx];
+                                    }
+                                    return ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}% (${numLabel} ${formatBRL(numVal)} / ${denLabel} ${formatBRL(denVal)})`;
                                 }
                             }
                         },
