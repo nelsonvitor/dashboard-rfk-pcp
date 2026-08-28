@@ -319,10 +319,16 @@
         </div>
     </section>
 
-    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.35s">
+    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.32s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Evolução do Gasto: Ano x Ano</h3>
         <p class="text-xs text-[#63637a] mb-4">Comparativo mensal do comportamento de compras (e faturamento e previsão) ao longo dos anos.</p>
         <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
+    </section>
+
+    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.35s">
+        <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x Previsão</h3>
+        <p class="text-xs text-[#63637a] mb-4">Percentual do custo de insumo em relação ao Faturamento e à Previsão de faturamento, por mês.</p>
+        <div class="relative h-[300px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.37s">
@@ -836,7 +842,7 @@
                 document.getElementById('kpiVar').className = "text-[#a8a8b8] flex items-center bg-white/5 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
             }
 
-            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); processarDadosTabela(); atualizarProjecao();
+            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); renderChartInsumoPrevisao(); processarDadosTabela(); atualizarProjecao();
             
             // Ativa auto-resize assim que DOM atualizou dados
             requestAnimationFrame(() => autoResizeKPIs());
@@ -924,6 +930,86 @@
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartComponente').getContext('2d');
             chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#a480f2', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+        }
+
+        // Gráfico de linhas: % de Insumo (dados.csv) em relação ao Faturamento (base_vendas.csv)
+        // e % de Insumo em relação à Previsão (base_vendas_previsao.csv), por mês.
+        function renderChartInsumoPrevisao() {
+            destroyChart('chartInsumoPrevisao');
+
+            const agrupadoInsumo = groupBy(filteredData, 'mes');
+            const agrupadoFat = groupBy(faturamentoFiltrado, 'mes');
+            const agrupadoPrev = groupBy(previsaoFiltrada, 'mes');
+
+            const mesesComDados = mesesOrdenados.filter(mes =>
+                (agrupadoInsumo[mes] && agrupadoInsumo[mes].length) ||
+                (agrupadoFat[mes] && agrupadoFat[mes].length) ||
+                (agrupadoPrev[mes] && agrupadoPrev[mes].length)
+            );
+            const mesesEixo = mesesComDados.length > 0 ? mesesComDados : mesesOrdenados;
+
+            const dataInsumo = mesesEixo.map(mes => { const itens = agrupadoInsumo[mes] || []; return itens.reduce((acc, val) => acc + val.custoTotal, 0); });
+            const dataFat = mesesEixo.map(mes => { const itens = agrupadoFat[mes] || []; return itens.reduce((acc, val) => acc + val.faturamento, 0); });
+            const dataPrev = mesesEixo.map(mes => { const itens = agrupadoPrev[mes] || []; return itens.reduce((acc, val) => acc + val.valor, 0); });
+
+            const pctFat = mesesEixo.map((_, i) => dataFat[i] > 0 ? (dataInsumo[i] / dataFat[i]) * 100 : null);
+            const pctPrev = mesesEixo.map((_, i) => dataPrev[i] > 0 ? (dataInsumo[i] / dataPrev[i]) * 100 : null);
+
+            const ctx = document.getElementById('chartInsumoPrevisao').getContext('2d');
+            chartInstances['chartInsumoPrevisao'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: mesesEixo,
+                    datasets: [
+                        {
+                            label: 'Insumo vs Faturamento',
+                            data: pctFat,
+                            borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.12)',
+                            fill: true, tension: 0.3, borderWidth: 2.5,
+                            pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#5b8def', pointBorderWidth: 2,
+                            spanGaps: false
+                        },
+                        {
+                            label: 'Insumo vs Previsão',
+                            data: pctPrev,
+                            borderColor: '#e8c93a', backgroundColor: 'rgba(232,201,58,0.12)',
+                            fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [6, 4],
+                            pointStyle: 'rectRot', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#e8c93a', pointBorderWidth: 2,
+                            spanGaps: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { top: 25 } },
+                    plugins: {
+                        legend: { display: true, labels: { color: '#e2e8f0' } },
+                        tooltip: {
+                            mode: 'index',
+                            callbacks: {
+                                label: (ctx) => {
+                                    if (ctx.raw === null) return ` ${ctx.dataset.label}: sem dados`;
+                                    const idx = ctx.dataIndex;
+                                    const isPrev = ctx.dataset.label.includes('Previsão');
+                                    const base = isPrev ? dataPrev[idx] : dataFat[idx];
+                                    const baseLabel = isPrev ? 'Previsão' : 'Faturamento';
+                                    return ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}% (Insumo ${formatBRL(dataInsumo[idx])} / ${baseLabel} ${formatBRL(base)})`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)',
+                            font: { weight: 'bold', size: 10 }, align: 'top', offset: 4,
+                            formatter: (value) => value === null ? '' : value.toFixed(1) + '%',
+                            display: (context) => context.dataset.data[context.dataIndex] !== null
+                        }
+                    },
+                    scales: {
+                        x: { grid: { display: true, color: 'rgba(255,255,255,0.05)' } },
+                        y: { beginAtZero: true, grid: { display: true, color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#a8a8b8', callback: (val) => val + '%' } }
+                    }
+                }
+            });
         }
 
         function renderChartEvolucao() {
