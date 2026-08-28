@@ -320,15 +320,15 @@
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.32s">
-        <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x Previsão</h3>
-        <p class="text-xs text-[#63637a] mb-4">Participação percentual do custo de insumo frente à previsão de faturamento, por mês (com linha de tendência).</p>
-        <div class="relative h-[300px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
-    </section>
-
-    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.35s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Evolução do Gasto: Ano x Ano</h3>
         <p class="text-xs text-[#63637a] mb-4">Comparativo mensal do comportamento de compras (e faturamento e previsão) ao longo dos anos.</p>
         <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
+    </section>
+
+    <section class="card p-6 mb-8 fade-up" style="animation-delay:0.35s">
+        <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x Previsão</h3>
+        <p class="text-xs text-[#63637a] mb-4">Participação percentual do custo de insumo frente à previsão de faturamento, por mês (com linha de tendência).</p>
+        <div class="relative h-[300px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.37s">
@@ -842,7 +842,7 @@
                 document.getElementById('kpiVar').className = "text-[#a8a8b8] flex items-center bg-white/5 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
             }
 
-            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartInsumoPrevisao(); renderChartEvolucao(); processarDadosTabela(); atualizarProjecao();
+            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); renderChartInsumoPrevisao(); processarDadosTabela(); atualizarProjecao();
             
             // Ativa auto-resize assim que DOM atualizou dados
             requestAnimationFrame(() => autoResizeKPIs());
