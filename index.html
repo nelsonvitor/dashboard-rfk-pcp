@@ -388,6 +388,7 @@
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="border-b border-[rgba(255,255,255,0.07)] text-xs text-[#a8a8b8] font-mono">
+                        <th class="py-3 px-2 font-semibold uppercase w-8"></th>
                         <th class="py-3 px-4 font-semibold uppercase">Componente</th>
                         <th class="py-3 px-4 font-semibold uppercase">Classe</th>
                         <th class="py-3 px-4 font-semibold uppercase">Grupo</th>
@@ -1009,7 +1010,15 @@
                     const chaveRecente = parseInt(maisRecente.ano) * 100 + maisRecente.mesIndex;
                     return chaveAtual >= chaveRecente ? atual : maisRecente;
                 }, itens[0]);
-                return { componente: comp, classe: itens[0].classe, grupo: itens[0].grupo, qtd: itens.length, custo: itens.reduce((acc, val) => acc + val.custoTotal, 0), precoMedio: precoMedio, ultimoFornecedor: ultimoItem.fornecedor };
+
+                // Detalhamento de custo por Filial (estado)
+                const custoPorFilialMap = {};
+                itens.forEach(i => { custoPorFilialMap[i.estado] = (custoPorFilialMap[i.estado] || 0) + i.custoTotal; });
+                const porFilial = Object.keys(custoPorFilialMap)
+                    .map(f => ({ filial: f, custo: custoPorFilialMap[f] }))
+                    .sort((a, b) => b.custo - a.custo);
+
+                return { componente: comp, classe: itens[0].classe, grupo: itens[0].grupo, qtd: itens.length, custo: itens.reduce((acc, val) => acc + val.custoTotal, 0), precoMedio: precoMedio, ultimoFornecedor: ultimoItem.fornecedor, porFilial: porFilial };
             }).sort((a, b) => b.custo - a.custo);
 
             const custoTotalGeral = tabelaCompleta.reduce((acc, item) => acc + item.custo, 0);
@@ -1038,11 +1047,29 @@
             const startIndex = (currentPage - 1) * itemsPerPage; const endIndex = startIndex + itemsPerPage;
             const itensPagina = tabelaFiltrada.slice(startIndex, endIndex);
 
-            if(totalItems === 0) { tbody.innerHTML = '<tr><td colspan="8" class="py-4 text-center text-[#63637a]">Nenhum insumo encontrado.</td></tr>'; } 
+            if(totalItems === 0) { tbody.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-[#63637a]">Nenhum insumo encontrado.</td></tr>'; } 
             else {
                 const abcStyles = { A: 'bg-accentGreen/14 text-accentGreen border-accentGreen/30', B: 'bg-accentOrange/14 text-accentOrange border-accentOrange/30', C: 'bg-accentRed/14 text-accentRed border-accentRed/30' };
-                tbody.innerHTML = itensPagina.map(l => `
+                tbody.innerHTML = itensPagina.map((l, idx) => {
+                    const rowId = `filial-detail-${idx}`;
+                    const porFilial = l.porFilial || [];
+                    const filialRowsHtml = porFilial.map(f => `
+                        <div class="flex items-center justify-between py-1.5 px-3 border-b border-white/5 last:border-0">
+                            <span class="text-xs text-[#a8a8b8] font-mono">${f.filial}</span>
+                            <span class="text-xs font-mono font-semibold text-accentGreen">${formatBRL(f.custo)}</span>
+                        </div>
+                    `).join('') || '<div class="py-2 px-3 text-xs text-[#63637a]">Sem dados por filial.</div>';
+
+                    return `
                     <tr class="border-b border-[rgba(255,255,255,0.04)] hover:bg-white/5 transition-colors">
+                        <td class="py-3 px-2 text-center">
+                            <button type="button" class="toggle-filial-btn w-6 h-6 inline-flex items-center justify-center rounded-md border border-white/10 text-[#a8a8b8] hover:text-accentGreen hover:border-accentGreen/40 transition-all duration-200" data-target="${rowId}" aria-expanded="false" title="Ver custo por Filial">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                            </button>
+                        </td>
                         <td class="py-3 px-4 font-medium text-[#f2f2f5]">${l.componente}</td>
                         <td class="py-3 px-4 text-[#a8a8b8] text-xs font-mono">${l.classe}</td>
                         <td class="py-3 px-4 text-[#a8a8b8] text-xs font-mono">${l.grupo}</td>
@@ -1052,12 +1079,34 @@
                         <td class="py-3 px-4 text-right font-mono font-semibold text-accentGreen">${formatBRL(l.custo)}</td>
                         <td class="py-3 px-4 text-center"><span class="inline-flex items-center justify-center w-6 h-6 rounded-md border font-mono font-bold text-xs ${abcStyles[l.classeABC]}">${l.classeABC}</span></td>
                     </tr>
-                `).join('');
+                    <tr id="${rowId}" class="hidden bg-black/20">
+                        <td class="py-0 px-2"></td>
+                        <td colspan="8" class="px-4 pb-3 pt-0">
+                            <div class="rounded-lg border border-white/10 bg-white/[0.03] px-1 py-1 mt-1">
+                                <p class="text-[10px] uppercase tracking-wider text-[#63637a] font-semibold px-3 pt-2 pb-1">Custo por Filial — ${l.componente}</p>
+                                ${filialRowsHtml}
+                            </div>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
             }
             document.getElementById('tableInfo').innerText = `Mostrando ${itensPagina.length > 0 ? startIndex + 1 : 0} a ${Math.min(endIndex, totalItems)} de ${totalItems} insumos`;
             document.getElementById('pageIndicator').innerText = `Página ${currentPage} de ${totalPages}`;
             document.getElementById('btnPrev').disabled = (currentPage === 1); document.getElementById('btnNext').disabled = (currentPage === totalPages);
         }
+
+        // Expandir/recolher detalhamento de custo por Filial em cada linha
+        document.getElementById('tabelaRanking').addEventListener('click', function(e) {
+            const btn = e.target.closest('.toggle-filial-btn');
+            if (!btn) return;
+            const target = document.getElementById(btn.dataset.target);
+            if (!target) return;
+            const isHidden = target.classList.contains('hidden');
+            target.classList.toggle('hidden');
+            btn.classList.toggle('rotate-45', isHidden);
+            btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+        });
 
         document.getElementById('btnPrev').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderizarPaginaTabela(); }});
         document.getElementById('btnNext').addEventListener('click', () => { const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage); if (currentPage < totalPages) { currentPage++; renderizarPaginaTabela(); }});
