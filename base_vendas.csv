@@ -1,6 +1,4 @@
-﻿Dados retornados para VisoComercial.;;;
-;;;
-fVendas[ANO];fVendas[Mês];[SumFaturamento];fVendas[Data]
+﻿fVendas[ANO];fVendas[Mês];[SumFaturamento];fVendas[Data]
 2024;1;485281,93;02/01/2024
 2024;1;486527,08;03/01/2024
 2024;1;387344,66;04/01/2024
