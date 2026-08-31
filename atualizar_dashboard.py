@@ -37,33 +37,38 @@ MENSAGEM_COMMIT = "Atualização automática dos dados"
 
 
 def atualizar_e_exportar():
-    excel = win32.gencache.EnsureDispatch("Excel.Application")
+    # DispatchEx força a criação de uma instância NOVA e isolada do Excel,
+    # em vez de reaproveitar uma instância já aberta (que poderia estar visível).
+    # Isso não fecha nem interfere em outras planilhas que você já tenha aberto manualmente.
+    excel = win32.DispatchEx("Excel.Application")
     excel.Visible = False
     excel.DisplayAlerts = False
 
-    print("Abrindo planilha de origem...")
-    wb = excel.Workbooks.Open(CAMINHO_PLANILHA_ORIGEM)
+    try:
+        print("Abrindo planilha de origem...")
+        wb = excel.Workbooks.Open(CAMINHO_PLANILHA_ORIGEM)
 
-    print("Atualizando Power Query (RefreshAll)...")
-    wb.RefreshAll()
+        print("Atualizando Power Query (RefreshAll)...")
+        wb.RefreshAll()
 
-    # Consultas do Power Query rodam em segundo plano (assíncronas).
-    # Isso força o Excel a esperar até todas terminarem.
-    excel.CalculateUntilAsyncQueriesDone()
+        # Consultas do Power Query rodam em segundo plano (assíncronas).
+        # Isso força o Excel a esperar até todas terminarem.
+        excel.CalculateUntilAsyncQueriesDone()
 
-    # Pequena margem de segurança extra
-    time.sleep(3)
+        # Pequena margem de segurança extra
+        time.sleep(3)
 
-    print(f"Exportando aba '{NOME_ABA_TABELA}' como CSV...")
-    aba = wb.Worksheets(NOME_ABA_TABELA)
-    aba.Copy()  # cria um novo workbook temporário só com essa aba
-    novo_wb = excel.ActiveWorkbook
-    novo_wb.SaveAs(CAMINHO_SAIDA_CSV, FileFormat=62)  # 62 = CSV UTF-8 (preserva acentos como em "MÊS")
-    novo_wb.Close(SaveChanges=False)
+        print(f"Exportando aba '{NOME_ABA_TABELA}' como CSV...")
+        aba = wb.Worksheets(NOME_ABA_TABELA)
+        aba.Copy()  # cria um novo workbook temporário só com essa aba
+        novo_wb = excel.ActiveWorkbook
+        novo_wb.SaveAs(CAMINHO_SAIDA_CSV, FileFormat=62)  # 62 = CSV UTF-8 (preserva acentos como em "MÊS")
+        novo_wb.Close(SaveChanges=False)
 
-    wb.Close(SaveChanges=False)
-    excel.Quit()
-    print(f"CSV salvo com sucesso em: {CAMINHO_SAIDA_CSV}")
+        wb.Close(SaveChanges=False)
+        print(f"CSV salvo com sucesso em: {CAMINHO_SAIDA_CSV}")
+    finally:
+        excel.Quit()
 
 
 def subir_para_github():
@@ -84,3 +89,7 @@ def subir_para_github():
 if __name__ == "__main__":
     atualizar_e_exportar()
     subir_para_github()
+    print("\n============================================")
+    print("Execução finalizada.")
+    print("============================================")
+    input("Pressione Enter para fechar esta janela...")
