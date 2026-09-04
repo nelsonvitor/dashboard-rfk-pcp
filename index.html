@@ -303,7 +303,7 @@
         </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 fade-up" style="animation-delay:0.25s">
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 fade-up" style="animation-delay:0.25s">
         <div class="card p-6">
             <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Classe</h3>
             <p class="text-xs text-[#63637a] mb-4">Proporção de custos alocados nas categorias (Top 7).</p>
@@ -313,6 +313,11 @@
             <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Filial</h3>
             <p class="text-xs text-[#63637a] mb-4">Volume total de compra consolidado por estado.</p>
             <div class="relative h-[300px] w-full"><canvas id="chartFilial"></canvas></div>
+        </div>
+        <div class="card p-6">
+            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Filial / Mês</h3>
+            <p class="text-xs text-[#63637a] mb-4">Gasto mensal consolidado, comparando todas as filiais.</p>
+            <div class="relative h-[300px] w-full"><canvas id="chartFilialMes"></canvas></div>
         </div>
     </section>
 
@@ -881,7 +886,7 @@
                 document.getElementById('kpiVar').className = "text-[#a8a8b8] flex items-center bg-white/5 px-2 py-0.5 rounded-md mr-2 font-mono font-medium text-xs";
             }
 
-            renderChartClasse(); renderChartFilial(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); renderChartInsumoPrevisao(); renderChartInsumoPrevisaoBarras(); processarDadosTabela(); atualizarProjecao();
+            renderChartClasse(); renderChartFilial(); renderChartFilialMes(); renderChartMediaMes(); renderChartComponente(); renderChartEvolucao(); renderChartInsumoPrevisao(); renderChartInsumoPrevisaoBarras(); processarDadosTabela(); atualizarProjecao();
             
             // Ativa auto-resize assim que DOM atualizou dados
             requestAnimationFrame(() => autoResizeKPIs());
@@ -960,6 +965,45 @@
 
             const ctx = document.getElementById('chartMediaMes').getContext('2d');
             chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0'} }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw), afterBody: (items) => { if (!isFatActive) return ''; const idx = items[0].dataIndex; const insumo = dataInsumos[idx]; const fat = dataFat[idx]; if (fat > 0) { return [`Insumos = ${((insumo / fat) * 100).toFixed(1)}% do faturamento`]; } return ''; } } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+        }
+
+        function renderChartFilialMes() {
+            destroyChart('chartFilialMes');
+            const filiais = [...new Set(filteredData.map(d => d.estado))].filter(Boolean)
+                .sort((a, b) => {
+                    const totalA = filteredData.filter(d => d.estado === a).reduce((acc, val) => acc + val.custoTotal, 0);
+                    const totalB = filteredData.filter(d => d.estado === b).reduce((acc, val) => acc + val.custoTotal, 0);
+                    return totalB - totalA;
+                });
+
+            const agrupadoMesFilial = {};
+            filteredData.forEach(d => {
+                if (!agrupadoMesFilial[d.mes]) agrupadoMesFilial[d.mes] = {};
+                agrupadoMesFilial[d.mes][d.estado] = (agrupadoMesFilial[d.mes][d.estado] || 0) + d.custoTotal;
+            });
+
+            const datasets = filiais.map((filial, index) => ({
+                label: filial,
+                data: mesesOrdenados.map(mes => (agrupadoMesFilial[mes] && agrupadoMesFilial[mes][filial]) || 0),
+                backgroundColor: colorsArr[index % colorsArr.length],
+                borderRadius: 4
+            }));
+
+            const ctx = document.getElementById('chartFilialMes').getContext('2d');
+            chartInstances['chartFilialMes'] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: mesesOrdenados, datasets: datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { top: 25 } },
+                    plugins: {
+                        legend: { display: true, position: 'bottom', labels: { color: '#e2e8f0', boxWidth: 10, font: { size: 10 } } },
+                        tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatBRL(ctx.raw)}` } },
+                        datalabels: { display: false }
+                    },
+                    scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } }
+                }
+            });
         }
 
         function renderChartComponente() {
