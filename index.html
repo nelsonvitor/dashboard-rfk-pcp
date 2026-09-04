@@ -235,6 +235,21 @@
                 <div id="optionsFilterClasse" class="multiselect-options"></div>
             </div>
         </div>
+        <div class="flex-1 min-w-[160px] relative" data-ms-wrapper="Insumo">
+            <label class="block text-xs font-bold text-[#a8a8b8] mb-1.5 uppercase tracking-wider">Descrição do Insumo</label>
+            <button type="button" id="btnFilterInsumo" class="multiselect-btn">
+                <span class="ms-label" id="labelFilterInsumo">Todos</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div id="panelFilterInsumo" class="multiselect-panel hidden">
+                <div class="multiselect-actions">
+                    <button type="button" data-action="all">Selecionar todos</button>
+                    <button type="button" data-action="none">Limpar</button>
+                </div>
+                <input type="text" id="searchOptionsInsumo" placeholder="Buscar insumo..." class="w-full mb-2 bg-[#0a0a0f] border border-[rgba(255,255,255,0.07)] text-[#f2f2f5] text-xs rounded-lg px-3 py-2 outline-none focus:border-accentGreen" autocomplete="off">
+                <div id="optionsFilterInsumo" class="multiselect-options"></div>
+            </div>
+        </div>
     </section>
 
     <!-- BLOCOS DOS KPIs COM AUTO-RESIZE JS PARA O VALOR NUNCA SAIR DO BLOCO -->
@@ -643,7 +658,7 @@
             }).filter(d => d.ano && d.valor > 0);
         }
 
-        const filterState = { ano: new Set(), mes: new Set(), filial: new Set(), grupo: new Set(), classe: new Set() };
+        const filterState = { ano: new Set(), mes: new Set(), filial: new Set(), grupo: new Set(), classe: new Set(), insumo: new Set() };
         const matchSet = (set, value) => set.size === 0 || set.has(value);
 
         function preencherFiltros() {
@@ -652,12 +667,14 @@
             const filiais = [...new Set(globalData.map(d => d.estado))].filter(Boolean).sort();
             const grupos = [...new Set(globalData.map(d => d.grupo))].filter(Boolean).sort();
             const classes = [...new Set(globalData.map(d => d.classe))].filter(Boolean).sort();
+            const insumos = [...new Set(globalData.map(d => d.componente))].filter(Boolean).sort();
 
             criarMultiSelect('ano', 'Ano', anos);
             criarMultiSelect('mes', 'Mes', meses);
             criarMultiSelect('filial', 'Filial', filiais);
             criarMultiSelect('grupo', 'Grupo', grupos);
             criarMultiSelect('classe', 'Classe', classes);
+            criarMultiSelect('insumo', 'Insumo', insumos);
 
             configurarComportamentoDropdowns();
         }
@@ -679,6 +696,19 @@
                 });
             });
             atualizarLabelMultiSelect(key, idSuffix, arr.length);
+
+            // Campo de busca opcional dentro do painel (usado no filtro de Insumo)
+            const searchInput = document.getElementById('searchOptions' + idSuffix);
+            if (searchInput) {
+                searchInput.value = '';
+                searchInput.oninput = () => {
+                    const termo = searchInput.value.toLowerCase();
+                    optionsContainer.querySelectorAll('.ms-option').forEach(opt => {
+                        const texto = opt.querySelector('span').innerText.toLowerCase();
+                        opt.style.display = texto.includes(termo) ? '' : 'none';
+                    });
+                };
+            }
         }
 
         function atualizarLabelMultiSelect(key, idSuffix, total) {
@@ -740,7 +770,8 @@
                        matchSet(filterState.mes, d.mes) &&
                        matchSet(filterState.filial, d.estado) &&
                        matchSet(filterState.grupo, d.grupo) &&
-                       matchSet(filterState.classe, d.classe);
+                       matchSet(filterState.classe, d.classe) &&
+                       matchSet(filterState.insumo, d.componente);
             });
             
             faturamentoFiltrado = globalFaturamento.filter(d => {
@@ -824,6 +855,7 @@
                     matchSet(filterState.filial, d.estado) &&
                     matchSet(filterState.grupo, d.grupo) &&
                     matchSet(filterState.classe, d.classe) &&
+                    matchSet(filterState.insumo, d.componente) &&
                     d.mesIndex <= maxMesIndex
                 );
                 
@@ -1089,7 +1121,7 @@
 
         function renderChartEvolucao() {
             destroyChart('chartEvolucao');
-            const baseParaEvolucao = globalData.filter(d => matchSet(filterState.filial, d.estado) && matchSet(filterState.grupo, d.grupo) && matchSet(filterState.classe, d.classe));
+            const baseParaEvolucao = globalData.filter(d => matchSet(filterState.filial, d.estado) && matchSet(filterState.grupo, d.grupo) && matchSet(filterState.classe, d.classe) && matchSet(filterState.insumo, d.componente));
             const dadosPorAno = groupBy(baseParaEvolucao, 'ano');
             let anos = Object.keys(dadosPorAno).sort();
             if (filterState.ano.size > 0) { anos = anos.filter(a => filterState.ano.has(a)); }
