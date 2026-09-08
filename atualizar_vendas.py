@@ -1,8 +1,8 @@
 """
-Script para automatizar o fluxo:
-1. Abrir a planilha de origem (com Power Query)
+Script para automatizar o fluxo da BASE DE VENDAS:
+1. Abrir a planilha "base_vendas.xlsx" (com Power Query conectado ao dataset do Power BI)
 2. Atualizar as consultas (equivalente ao Alt+F5)
-3. Exportar os dados atualizados para dados.csv
+3. Exportar os dados atualizados para base_vendas.csv
 4. Subir o CSV atualizado para o GitHub (add, commit, push)
 
 Requisitos:
@@ -17,60 +17,36 @@ import traceback
 import win32com.client as win32
 
 # ===================== CONFIGURAÇÕES =====================
-# Caminho completo da planilha de origem (ajuste a extensão se for .xlsm em vez de .xlsx)
-CAMINHO_PLANILHA_ORIGEM = r"C:\Users\jaildo.junior\Desktop\DASHBOARD_RFK\DADOS_INSUMO\TESTE_ABC_DASHBOARD_1.xlsx"
+# Caminho completo da planilha de vendas (ajuste a extensão se for .xlsm em vez de .xlsx)
+CAMINHO_PLANILHA_VENDAS = r"C:\Users\jaildo.junior\Desktop\DASHBOARD_RFK\DADOS_VENDA\base_vendas.xlsx"
 
-# Nome da aba/planilha que contém a tabela final que deve virar o dados.csv
-NOME_ABA_TABELA = "BASE DE DADOS"
+# Nome da aba/planilha que contém a tabela final tratada, vinda do Power BI
+NOME_ABA_TABELA = "BASE_VENDAS"
 
 # Caminho de saída do CSV
-CAMINHO_SAIDA_CSV = r"C:\Users\jaildo.junior\Desktop\ANALISE_PCP_RFK\dados.csv"
+CAMINHO_SAIDA_CSV = r"C:\Users\jaildo.junior\Desktop\ANALISE_PCP_RFK\base_vendas.csv"
 
 # Pasta raiz do repositório Git (a pasta que contém a pasta .git)
-# >>> CONFIRME se é essa mesma pasta <<<
 CAMINHO_REPO_GIT = r"C:\Users\jaildo.junior\Desktop\ANALISE_PCP_RFK"
 
 # Nome do arquivo dentro do repositório para o git add (relativo ao CAMINHO_REPO_GIT)
-ARQUIVO_NO_REPO = "dados.csv"
+ARQUIVO_NO_REPO = "base_vendas.csv"
 
-MENSAGEM_COMMIT = "Atualização automática dos dados"
+MENSAGEM_COMMIT = "Atualização automática da base de vendas"
 # ===========================================================
 
 
 def atualizar_e_exportar():
     # DispatchEx força a criação de uma instância NOVA e isolada do Excel,
-    # em vez de reaproveitar uma instância já aberta (que poderia estar visível).
-    # Isso não fecha nem interfere em outras planilhas que você já tenha aberto manualmente.
+    # em vez de reaproveitar uma instância já aberta (não fecha nem interfere
+    # em outras planilhas que você já tenha aberto manualmente).
     excel = win32.DispatchEx("Excel.Application")
     excel.Visible = False
     excel.DisplayAlerts = False
 
-    # Evita o pop-up "Este arquivo contém vínculos para outros arquivos.
-    # Deseja atualizá-los?" que trava o script esperando clique manual.
-    excel.AskToUpdateLinks = False
-
     try:
-        print("Abrindo planilha de origem...")
-        # UpdateLinks=0 -> não atualiza vínculos externos ao abrir (evita o prompt acima)
-        wb = excel.Workbooks.Open(CAMINHO_PLANILHA_ORIGEM, UpdateLinks=0)
-
-        # Se o arquivo foi copiado/baixado/sincronizado (OneDrive, rede, e-mail etc.),
-        # o Windows pode marcá-lo como "bloqueado" e o Excel abre em Modo de Exibição
-        # Protegida (somente leitura), exigindo clique manual em "Habilitar Edição".
-        # O bloco abaixo detecta isso e libera a edição automaticamente.
-        if excel.ProtectedViewWindows.Count > 0:
-            print("Arquivo abriu em Modo de Exibição Protegida. Habilitando edição automaticamente...")
-            pvw = excel.ProtectedViewWindows.Item(1)
-            wb = pvw.Edit()  # converte a janela protegida em um Workbook editável normal
-
-        if wb.ReadOnly:
-            raise RuntimeError(
-                "A planilha foi aberta como SOMENTE LEITURA e não foi possível liberar "
-                "a edição automaticamente. Verifique se o arquivo não está aberto por "
-                "outra pessoa/processo, ou se está marcado como 'Somente leitura' nas "
-                "propriedades do arquivo no Windows (botão direito > Propriedades > "
-                "desmarcar 'Somente leitura')."
-            )
+        print("Abrindo planilha de vendas...")
+        wb = excel.Workbooks.Open(CAMINHO_PLANILHA_VENDAS)
 
         print("Atualizando Power Query (RefreshAll)...")
         wb.RefreshAll()
@@ -82,14 +58,14 @@ def atualizar_e_exportar():
         # Pequena margem de segurança extra
         time.sleep(3)
 
-        print("Salvando planilha de origem com os dados atualizados...")
+        print("Salvando planilha de vendas com os dados atualizados...")
         wb.Save()
 
         print(f"Exportando aba '{NOME_ABA_TABELA}' como CSV...")
         aba = wb.Worksheets(NOME_ABA_TABELA)
         aba.Copy()  # cria um novo workbook temporário só com essa aba
         novo_wb = excel.ActiveWorkbook
-        novo_wb.SaveAs(CAMINHO_SAIDA_CSV, FileFormat=62)  # 62 = CSV UTF-8 (preserva acentos como em "MÊS")
+        novo_wb.SaveAs(CAMINHO_SAIDA_CSV, FileFormat=62)  # 62 = CSV UTF-8 (preserva acentos)
         novo_wb.Close(SaveChanges=False)
 
         wb.Close(SaveChanges=False)  # já foi salva explicitamente acima com wb.Save()
@@ -116,7 +92,7 @@ def subir_para_github():
         subprocess.run(["git", "commit", "-m", mensagem], cwd=CAMINHO_REPO_GIT, check=True)
     else:
         # Cria um commit vazio só para registrar que o script rodou e verificou os dados
-        mensagem = f"Verificação automática (sem mudanças nos dados) - {agora}"
+        mensagem = f"Verificação automática vendas (sem mudanças) - {agora}"
         subprocess.run(
             ["git", "commit", "--allow-empty", "-m", mensagem],
             cwd=CAMINHO_REPO_GIT,
