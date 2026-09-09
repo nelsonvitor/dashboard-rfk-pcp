@@ -318,7 +318,7 @@
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.27s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Quantidade x Custo por Mês</h3>
-        <p class="text-xs text-[#63637a] mb-4">Colunas: quantidade de pedidos/linhas por mês. Linha: custo total por mês. Aplique os filtros no topo (ex: Filial) para ver o comportamento de quantidade x preço em cada recorte.</p>
+        <p class="text-xs text-[#63637a] mb-4">Colunas: soma da coluna QUANTIDADE por mês. Linha: custo total por mês. Aplique os filtros no topo (ex: Filial) para ver o comportamento de quantidade x preço em cada recorte.</p>
         <div class="relative h-[350px] w-full"><canvas id="chartQtdCustoMes"></canvas></div>
     </section>
 
@@ -975,7 +975,7 @@
             const agrupadoMes = {};
             filteredData.forEach(d => {
                 if (!agrupadoMes[d.mes]) agrupadoMes[d.mes] = { qtd: 0, custo: 0 };
-                agrupadoMes[d.mes].qtd += 1;
+                agrupadoMes[d.mes].qtd += (d.quantidade || 0);
                 agrupadoMes[d.mes].custo += d.custoTotal;
             });
 
@@ -999,7 +999,7 @@
                                 display: 'auto', anchor: 'end', align: 'top', offset: 4,
                                 color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,1)',
                                 font: { size: 10, weight: 'bold' },
-                                formatter: (val) => val > 0 ? val.toLocaleString('pt-BR') : ''
+                                formatter: (val) => val > 0 ? val.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : ''
                             }
                         },
                         {
@@ -1033,7 +1033,7 @@
                             callbacks: {
                                 label: (ctx) => ctx.dataset.label === 'Custo Total'
                                     ? ' Custo Total: ' + formatBRL(ctx.raw)
-                                    : ' Quantidade: ' + ctx.raw.toLocaleString('pt-BR')
+                                    : ' Quantidade: ' + ctx.raw.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
                             }
                         }
                     },
