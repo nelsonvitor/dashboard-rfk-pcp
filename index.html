@@ -585,8 +585,11 @@
 
                 let ano = '', mesIndex = -1, mesStr = 'N/A';
                 let dataKey = chaves.find(k => k && k.toUpperCase().includes('DATA'));
-                let mesKey = chaves.find(k => k && (k.toUpperCase() === 'MÊS' || k.toUpperCase() === 'MES'));
-                let anoKey = chaves.find(k => k && k.toUpperCase() === 'ANO');
+                // Colunas do Power BI vêm como "fVendas[Mês]" / "fVendas[ANO]" (não o nome exato
+                // "MÊS"/"ANO"), então usamos "contém" em vez de igualdade exata. Excluímos a
+                // coluna combinada "Mês/Ano" para não confundir com as colunas separadas.
+                let mesKey = chaves.find(k => k && !k.includes('/') && (k.toUpperCase().includes('MÊS') || k.toUpperCase().includes('MES')));
+                let anoKey = chaves.find(k => k && !k.includes('/') && k.toUpperCase().includes('ANO'));
 
                 if (mesKey && anoKey) {
                     ano = String(d[anoKey]).trim();
@@ -636,8 +639,10 @@
 
                 let ano = '', mesIndex = -1, mesStr = 'N/A';
                 let dataKey = chaves.find(k => k && k.toUpperCase().includes('DATA'));
-                let mesKey = chaves.find(k => k && (k.toUpperCase() === 'MÊS' || k.toUpperCase() === 'MES'));
-                let anoKey = chaves.find(k => k && k.toUpperCase() === 'ANO');
+                // Mesmo ajuste: colunas vêm como "fVendas[Mês]" / "fVendas[ANO]", então usamos
+                // "contém" em vez de igualdade exata, excluindo a coluna combinada "Mês/Ano".
+                let mesKey = chaves.find(k => k && !k.includes('/') && (k.toUpperCase().includes('MÊS') || k.toUpperCase().includes('MES')));
+                let anoKey = chaves.find(k => k && !k.includes('/') && k.toUpperCase().includes('ANO'));
 
                 if (mesKey && anoKey) {
                     ano = String(d[anoKey]).trim();
