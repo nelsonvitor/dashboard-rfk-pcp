@@ -3,7 +3,7 @@ Script para automatizar o fluxo:
 1. Abrir a planilha de origem (com Power Query)
 2. Atualizar as consultas (equivalente ao Alt+F5)
 3. Exportar os dados atualizados para dados.csv
-4. Subir o CSV atualizado para o GitHub (add, commit, push)
+4. Subir o CSV atualizado (e qualquer outra mudança na pasta) para o GitHub (add, commit, push)
 
 Requisitos:
     pip install pywin32
@@ -32,9 +32,6 @@ CAMINHO_SAIDA_CSV = r"C:\Users\jaildo.junior\Desktop\ANALISE_PCP_RFK\dados.csv"
 # Pasta raiz do repositório Git (a pasta que contém a pasta .git)
 # >>> CONFIRME se é essa mesma pasta <<<
 CAMINHO_REPO_GIT = r"C:\Users\jaildo.junior\Desktop\ANALISE_PCP_RFK"
-
-# Nome do arquivo dentro do repositório para o git add (relativo ao CAMINHO_REPO_GIT)
-ARQUIVO_NO_REPO = "dados.csv"
 
 MENSAGEM_COMMIT = "Atualização automática dos dados"
 
@@ -131,13 +128,17 @@ def atualizar_e_exportar():
 
 def subir_para_github():
     print("Enviando alterações para o GitHub...")
-    subprocess.run(["git", "add", ARQUIVO_NO_REPO], cwd=CAMINHO_REPO_GIT, check=True)
+    # "-A" adiciona TODAS as mudanças da pasta (não só o dados.csv) — assim,
+    # se você editar este script, o index.html, ou qualquer outro arquivo do
+    # repositório, ele também é commitado e enviado automaticamente na
+    # próxima execução, sem precisar rodar git add/commit/push manualmente.
+    subprocess.run(["git", "add", "-A"], cwd=CAMINHO_REPO_GIT, check=True)
 
     agora = time.strftime("%d/%m/%Y %H:%M:%S")
 
-    # Verifica se há mudanças reais no conteúdo do arquivo
+    # Verifica se há alguma mudança pendente (em qualquer arquivo, não só o CSV)
     resultado_status = subprocess.run(
-        ["git", "diff", "--cached", "--quiet", ARQUIVO_NO_REPO],
+        ["git", "diff", "--cached", "--quiet"],
         cwd=CAMINHO_REPO_GIT,
     )
     houve_mudanca = resultado_status.returncode != 0
@@ -152,6 +153,31 @@ def subir_para_github():
             ["git", "commit", "--allow-empty", "-m", mensagem],
             cwd=CAMINHO_REPO_GIT,
             check=True,
+        )
+
+    # Antes de enviar, sincroniza com o que já existe no GitHub (evita o erro
+    # "rejected... fetch first" quando o repositório remoto tem commits que
+    # ainda não estão aqui localmente).
+    print("Sincronizando com o repositório remoto (git pull --rebase)...")
+    # --autostash guarda temporariamente qualquer mudança não commitada em
+    # outros arquivos da pasta, faz o rebase, e devolve essas mudanças depois.
+    resultado_pull = subprocess.run(
+        ["git", "pull", "--rebase", "--autostash"],
+        cwd=CAMINHO_REPO_GIT,
+    )
+
+    if resultado_pull.returncode != 0:
+        # Provavelmente houve conflito entre as mudanças locais e remotas.
+        # Não dá pra resolver isso automaticamente sem risco de perder dados,
+        # então abortamos o rebase e avisamos para resolver manualmente.
+        subprocess.run(["git", "rebase", "--abort"], cwd=CAMINHO_REPO_GIT)
+        raise RuntimeError(
+            "Não foi possível sincronizar automaticamente com o GitHub: houve "
+            "conflito entre as mudanças locais e as que já estão no repositório "
+            "remoto. O rebase foi abortado para não perder nada. Abra o "
+            "PowerShell/CMD na pasta do repositório e resolva manualmente com "
+            "'git pull' (ou peça ajuda para resolver o conflito) antes de rodar "
+            "este script de novo."
         )
 
     subprocess.run(["git", "push"], cwd=CAMINHO_REPO_GIT, check=True)
