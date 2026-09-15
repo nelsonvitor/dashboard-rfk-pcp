@@ -134,12 +134,27 @@
             width: 15px; height: 15px; accent-color: #2dd4a7; cursor: pointer; flex-shrink: 0;
         }
         .hidden { display: none; }
+
+        /* ===== Navegação entre relatórios ===== */
+        .nav-pill {
+            padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 600;
+            text-decoration: none; color: #a8a8b8; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07); transition: background-color .2s, color .2s, border-color .2s;
+            white-space: nowrap;
+        }
+        .nav-pill:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
+        .nav-pill.active { color: #0a0a0f; background: #2dd4a7; border-color: #2dd4a7; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 font-sans antialiased">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
+
+    <nav class="mb-5 flex items-center gap-2 fade-up">
+        <a href="index.html" class="nav-pill active">Curva ABC — Insumos</a>
+        <a href="kanban.html" class="nav-pill">Kanban de Estoque</a>
+    </nav>
 
     <header class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 fade-up">
         <div>
