@@ -156,6 +156,12 @@
                 <input type="checkbox" id="toggleFaturamento" class="w-4 h-4 accent-accentGreen cursor-pointer" checked>
                 FATURAMENTO
             </label>
+
+            <!-- BOTÃO TOGGLE PARA ATIVAR S&OP -->
+            <label class="flex items-center gap-2 cursor-pointer bg-[#14141c] border border-[#e8c93a]/40 px-4 py-2.5 rounded-xl text-sm font-medium text-[#f2f2f5] hover:border-[#e8c93a] transition-all shadow-[0_0_15px_rgba(232,201,58,0.15)]">
+                <input type="checkbox" id="toggleSOP" class="w-4 h-4 cursor-pointer" style="accent-color:#e8c93a" checked>
+                S&amp;OP
+            </label>
             
             <div id="statusCarregamento" class="flex items-center gap-3 bg-[#14141c] border border-[rgba(255,255,255,0.07)] px-5 py-2.5 rounded-xl font-medium text-sm text-[#a8a8b8]">
                 <div class="loader" id="loaderIcon"></div>
@@ -342,18 +348,18 @@
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.32s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Evolução do Gasto: Ano x Ano</h3>
-        <p class="text-xs text-[#63637a] mb-4">Comparativo mensal do comportamento de compras (e faturamento e previsão) ao longo dos anos.</p>
+        <p class="text-xs text-[#63637a] mb-4">Comparativo mensal do comportamento de compras (e faturamento e S&amp;OP) ao longo dos anos.</p>
         <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 fade-up" style="animation-delay:0.35s">
         <div class="card p-6">
-            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x Previsão</h3>
-            <p class="text-xs text-[#63637a] mb-4">Percentual do custo de insumo em relação ao Faturamento e à Previsão, e do Faturamento em relação à Previsão, por mês.</p>
+            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x S&amp;OP</h3>
+            <p class="text-xs text-[#63637a] mb-4">Percentual do custo de insumo em relação ao Faturamento e ao S&amp;OP, e do Faturamento em relação ao S&amp;OP, por mês.</p>
             <div class="relative h-[300px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
         </div>
         <div class="card p-6">
-            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x Previsão (Colunas)</h3>
+            <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x S&amp;OP (Colunas)</h3>
             <p class="text-xs text-[#63637a] mb-4">Mesmos percentuais, em colunas agrupadas por mês.</p>
             <div class="relative h-[300px] w-full"><canvas id="chartInsumoPrevisaoBarras"></canvas></div>
         </div>
@@ -538,6 +544,11 @@
             // ALTERAÇÃO DO TOGGLE
             document.getElementById('toggleFaturamento').addEventListener('change', () => {
                 aplicarFiltros(); 
+            });
+
+            // ALTERAÇÃO DO TOGGLE DE S&OP
+            document.getElementById('toggleSOP').addEventListener('change', () => {
+                aplicarFiltros();
             });
             
             // Reajusta os números dos KPIs se a janela for redimensionada
@@ -1066,11 +1077,12 @@
             chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#a480f2', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
-        // Cálculo compartilhado: % de Insumo vs Faturamento, % de Insumo vs Previsão e % de Faturamento vs Previsão, por mês.
+        // Cálculo compartilhado: % de Insumo vs Faturamento, % de Insumo vs S&OP e % de Faturamento vs S&OP, por mês.
         function calcularPercentuaisInsumoPrevisao() {
+            const isSOPAtivo = document.getElementById('toggleSOP').checked;
             const agrupadoInsumo = groupBy(filteredData, 'mes');
             const agrupadoFat = groupBy(faturamentoFiltrado, 'mes');
-            const agrupadoPrev = groupBy(previsaoFiltrada, 'mes');
+            const agrupadoPrev = isSOPAtivo ? groupBy(previsaoFiltrada, 'mes') : {};
 
             const mesesComDados = mesesOrdenados.filter(mes =>
                 (agrupadoInsumo[mes] && agrupadoInsumo[mes].length) ||
@@ -1095,57 +1107,63 @@
             if (ctx.raw === null) return ` ${ctx.dataset.label}: sem dados`;
             const idx = ctx.dataIndex;
             let numLabel, numVal, denLabel, denVal;
-            if (ctx.dataset.label === 'Faturamento vs Previsão') {
+            if (ctx.dataset.label === 'Faturamento vs S&OP') {
                 numLabel = 'Faturamento'; numVal = calc.dataFat[idx];
-                denLabel = 'Previsão'; denVal = calc.dataPrev[idx];
+                denLabel = 'S&OP'; denVal = calc.dataPrev[idx];
             } else {
                 numLabel = 'Insumo'; numVal = calc.dataInsumo[idx];
-                const isPrev = ctx.dataset.label.includes('Previsão');
-                denLabel = isPrev ? 'Previsão' : 'Faturamento';
+                const isPrev = ctx.dataset.label.includes('S&OP');
+                denLabel = isPrev ? 'S&OP' : 'Faturamento';
                 denVal = isPrev ? calc.dataPrev[idx] : calc.dataFat[idx];
             }
             return ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}% (${numLabel} ${formatBRL(numVal)} / ${denLabel} ${formatBRL(denVal)})`;
         }
 
         // Gráfico de linhas: % de Insumo (dados.csv) em relação ao Faturamento (base_vendas.csv)
-        // e % de Insumo em relação à Previsão (base_vendas_previsao.csv), por mês.
+        // e % de Insumo em relação ao S&OP (base_vendas_previsao.csv), por mês.
         function renderChartInsumoPrevisao() {
             destroyChart('chartInsumoPrevisao');
 
+            const isSOPAtivo = document.getElementById('toggleSOP').checked;
             const calc = calcularPercentuaisInsumoPrevisao();
             const { mesesEixo, pctFat, pctPrev, pctFatPrev } = calc;
+
+            const datasets = [
+                {
+                    label: 'Insumo vs Faturamento',
+                    data: pctFat,
+                    borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.12)',
+                    fill: true, tension: 0.3, borderWidth: 2.5,
+                    pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#5b8def', pointBorderWidth: 2,
+                    spanGaps: false
+                }
+            ];
+
+            if (isSOPAtivo) {
+                datasets.push({
+                    label: 'Insumo vs S&OP',
+                    data: pctPrev,
+                    borderColor: '#e8c93a', backgroundColor: 'rgba(232,201,58,0.12)',
+                    fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [6, 4],
+                    pointStyle: 'rectRot', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#e8c93a', pointBorderWidth: 2,
+                    spanGaps: false
+                });
+                datasets.push({
+                    label: 'Faturamento vs S&OP',
+                    data: pctFatPrev,
+                    borderColor: '#a480f2', backgroundColor: 'rgba(164,128,242,0.12)',
+                    fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [2, 3],
+                    pointStyle: 'triangle', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#a480f2', pointBorderWidth: 2,
+                    spanGaps: false
+                });
+            }
 
             const ctx = document.getElementById('chartInsumoPrevisao').getContext('2d');
             chartInstances['chartInsumoPrevisao'] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: mesesEixo,
-                    datasets: [
-                        {
-                            label: 'Insumo vs Faturamento',
-                            data: pctFat,
-                            borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.12)',
-                            fill: true, tension: 0.3, borderWidth: 2.5,
-                            pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#5b8def', pointBorderWidth: 2,
-                            spanGaps: false
-                        },
-                        {
-                            label: 'Insumo vs Previsão',
-                            data: pctPrev,
-                            borderColor: '#e8c93a', backgroundColor: 'rgba(232,201,58,0.12)',
-                            fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [6, 4],
-                            pointStyle: 'rectRot', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#e8c93a', pointBorderWidth: 2,
-                            spanGaps: false
-                        },
-                        {
-                            label: 'Faturamento vs Previsão',
-                            data: pctFatPrev,
-                            borderColor: '#a480f2', backgroundColor: 'rgba(164,128,242,0.12)',
-                            fill: true, tension: 0.3, borderWidth: 2.5, borderDash: [2, 3],
-                            pointStyle: 'triangle', pointRadius: 4, pointBackgroundColor: '#14141c', pointBorderColor: '#a480f2', pointBorderWidth: 2,
-                            spanGaps: false
-                        }
-                    ]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
@@ -1176,19 +1194,24 @@
         function renderChartInsumoPrevisaoBarras() {
             destroyChart('chartInsumoPrevisaoBarras');
 
+            const isSOPAtivo = document.getElementById('toggleSOP').checked;
             const calc = calcularPercentuaisInsumoPrevisao();
             const { mesesEixo, pctFat, pctPrev, pctFatPrev } = calc;
+
+            const datasets = [
+                { label: 'Insumo vs Faturamento', data: pctFat, backgroundColor: '#5b8def', borderRadius: 4 }
+            ];
+            if (isSOPAtivo) {
+                datasets.push({ label: 'Insumo vs S&OP', data: pctPrev, backgroundColor: '#e8c93a', borderRadius: 4 });
+                datasets.push({ label: 'Faturamento vs S&OP', data: pctFatPrev, backgroundColor: '#a480f2', borderRadius: 4 });
+            }
 
             const ctx = document.getElementById('chartInsumoPrevisaoBarras').getContext('2d');
             chartInstances['chartInsumoPrevisaoBarras'] = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: mesesEixo,
-                    datasets: [
-                        { label: 'Insumo vs Faturamento', data: pctFat, backgroundColor: '#5b8def', borderRadius: 4 },
-                        { label: 'Insumo vs Previsão', data: pctPrev, backgroundColor: '#e8c93a', borderRadius: 4 },
-                        { label: 'Faturamento vs Previsão', data: pctFatPrev, backgroundColor: '#a480f2', borderRadius: 4 }
-                    ]
+                    datasets: datasets
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
@@ -1249,8 +1272,9 @@
                 });
             }
 
-            // ===== ADIÇÃO DA LINHA DE PREVISÃO =====
-            if (previsaoFiltrada.length > 0) {
+            // ===== ADIÇÃO DA LINHA DE S&OP =====
+            const isSOPAtivo = document.getElementById('toggleSOP').checked;
+            if (isSOPAtivo && previsaoFiltrada.length > 0) {
                 const dadosPrevPorAno = groupBy(previsaoFiltrada, 'ano');
                 anos.forEach((ano) => {
                     if (dadosPrevPorAno[ano]) {
@@ -1259,7 +1283,7 @@
                         
                         if(dataValuesPrev.some(v => v !== null && v > 0)) {
                             datasets.push({ 
-                                label: 'Previsão ' + ano, 
+                                label: 'S&OP ' + ano, 
                                 data: dataValuesPrev, 
                                 borderColor: '#e8c93a', 
                                 borderDash: [8, 5], 
