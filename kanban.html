@@ -221,10 +221,11 @@ function kanbanMeta(v){
 }
 
 const FILTERS_CONFIG = [
-  { key:'local',      label:'Local' },
-  { key:'categoria',  label:'Categoria' },
-  { key:'marca',      label:'Marca' },
-  { key:'kanbanAtual',label:'Kanban Atual' },
+  { key:'local',            label:'Local' },
+  { key:'categoria',        label:'Categoria' },
+  { key:'marca',            label:'Marca' },
+  { key:'statusFabricacao', label:'Fabricação' },
+  { key:'kanbanAtual',      label:'Kanban Atual' },
 ];
 
 const state = {
@@ -239,6 +240,23 @@ let charts = {};
 
 const fmtInt = v => Math.round(Number(v)||0).toLocaleString('pt-BR');
 const fmtDec = (v, d=1) => Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+
+// A base usa formatação numérica pt-BR: "." como separador de milhar e "," como decimal.
+// Ex.: "25.746" = 25746 | "7,5" = 7.5. Number("25.746") daria 25.746 (errado), por isso
+// precisamos converter explicitamente antes de qualquer cálculo/ordenação/exibição.
+const NUMERIC_FIELDS = ['estoqueAtual','estoqueMaximo','coberturaAtual','coberturaPlanejada','estoqueSeguranca','pontoReposicao'];
+function parseNumberBR(v){
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'number') return v;
+  let s = String(v).trim();
+  if (s === '') return 0;
+  s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+function coerceNumericFields(rows){
+  rows.forEach(r => { NUMERIC_FIELDS.forEach(f => { r[f] = parseNumberBR(r[f]); }); });
+}
 
 function uniqueValues(key) {
   return [...new Set(RAW_DATA.map(r => {
@@ -618,6 +636,7 @@ function applyAndRender(){
 
 function normalizeHeaderName(h) {
   let norm = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  if (norm === 'data') return 'data';
   if (norm.includes('produto') || norm.includes('sku')) return 'produto';
   if (norm.includes('codigo') || norm.includes('cod')) return 'codigo';
   if (norm.includes('local') || norm.includes('armazem')) return 'local';
@@ -626,11 +645,14 @@ function normalizeHeaderName(h) {
   if (norm.includes('estoque atual') || norm.includes('qtde atual')) return 'estoqueAtual';
   if (norm.includes('estoque maximo') || norm.includes('qtde maxima') || norm === 'maximo') return 'estoqueMaximo';
   if (norm.includes('cobertura atual') || norm === 'cobertura') return 'coberturaAtual';
-  if (norm.includes('kanban atual') || norm === 'status atual' || norm === 'kanban') return 'kanbanAtual';
-  if (norm.includes('kanban futuro') || norm === 'status futuro') return 'kanbanFuturo';
+  // Aceita tanto "KANBAN" quanto a grafia usada na base "KAMBAN"
+  if (norm.includes('kanban atual') || norm.includes('kamban atual') || norm === 'status atual') return 'kanbanAtual';
+  if (norm.includes('kanban futuro') || norm.includes('kamban futuro') || norm === 'status futuro') return 'kanbanFuturo';
   if (norm.includes('seguranca') || norm === 'estoque minimo') return 'estoqueSeguranca';
   if (norm.includes('reposicao') || norm.includes('ponto')) return 'pontoReposicao';
   if (norm.includes('planejada') || norm.includes('futura')) return 'coberturaPlanejada';
+  if (norm.includes('status fabricacao')) return 'statusFabricacao';
+  if (norm === 'curva abc') return 'curvaAbc';
   return h;
 }
 
@@ -642,10 +664,13 @@ function processCSVData(csvString) {
       return normalizeHeaderName(h);
     },
     complete: function(results) {
-      RAW_DATA = results.data;
+      RAW_DATA = results.data.filter(r => Object.values(r).some(v => String(v||'').trim() !== ''));
+      coerceNumericFields(RAW_DATA);
+      const datas = RAW_DATA.map(r => r.data).filter(Boolean);
+      const dataRef = datas.length ? datas[datas.length - 1] : null;
       document.getElementById('lastUpdate').innerHTML = `
         <span style="width:8px;height:8px;border-radius:50%;background:#2dd4a7;display:inline-block;"></span>
-        Base carregada &nbsp;&middot;&nbsp; ${RAW_DATA.length} itens monitorados
+        Base carregada${dataRef ? ` &middot; ref. ${dataRef}` : ''} &nbsp;&middot;&nbsp; ${RAW_DATA.length} itens monitorados
       `;
       document.getElementById('filePickerContainer').style.display = 'none';
       renderKpis();
