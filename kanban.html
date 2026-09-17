@@ -292,7 +292,6 @@ function renderKpis(){
         state.filters.kanbanAtual.clear();
       } else {
         const set = state.filters.kanbanAtual;
-        // Check exact match (ignoring case for logic, but stored as-is in options)
         const exactMatch = uniqueValues('kanbanAtual').find(v => v.toUpperCase() === key);
         if(exactMatch) {
             if (set.has(exactMatch) && set.size === 1) set.clear();
@@ -310,7 +309,6 @@ function highlightActiveKpi(){
   const active = state.filters.kanbanAtual;
   document.querySelectorAll('[data-kpi]').forEach(el => {
     const key = el.dataset.kpi;
-    // Check if any of the active sets match this key when uppercased
     const isActiveMatch = Array.from(active).some(v => v.toUpperCase() === key);
     const isActive = (key === '__all__' && active.size === 0) || (active.size > 0 && isActiveMatch);
     el.classList.toggle('active', isActive);
@@ -617,8 +615,6 @@ function applyAndRender(){
 }
 
 // ---------- PROCESSADOR DE CSV ----------
-// Normaliza os cabeçalhos do CSV para que independentemente de como estejam escritos no Excel,
-// o JavaScript saiba exatamente onde colocar cada valor.
 function normalizeHeaderName(h) {
   let norm = h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   if (norm.includes('produto') || norm.includes('sku')) return 'produto';
@@ -634,7 +630,7 @@ function normalizeHeaderName(h) {
   if (norm.includes('seguranca') || norm === 'estoque minimo') return 'estoqueSeguranca';
   if (norm.includes('reposicao') || norm.includes('ponto')) return 'pontoReposicao';
   if (norm.includes('planejada') || norm.includes('futura')) return 'coberturaPlanejada';
-  return h; // fallback
+  return h;
 }
 
 function processCSVData(csvString) {
@@ -681,38 +677,13 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
 // ---------- INIT ----------
 async function loadData() {
   try {
-    // Array com possíveis nomes do CSV para o script tentar carregar
-    const possibleFiles = [
-      'base_kamban_3.csv',
-      'base_kamban_2.csv',
-      'base_kamban.csv'
-    ];
+    // Busca exclusivamente pelo base_kamban.csv adicionando parâmetro para quebrar o cache do GitHub/Navegador
+    const response = await fetch('base_kamban.csv?t=' + new Date().getTime());
     
-    let csvText = null;
+    if (!response.ok) throw new Error('Falha HTTP: ' + response.status);
     
-    // Tenta carregar cada arquivo da lista sequencialmente
-    for (const fileName of possibleFiles) {
-      try {
-        // Usa timestamp na URL para evitar cache (forçar o navegador a pegar a versão mais recente do GitHub)
-        const cacheBuster = '?t=' + new Date().getTime();
-        const response = await fetch(fileName + cacheBuster);
-        
-        if (response.ok) {
-          csvText = await response.text();
-          console.log(`Sucesso ao carregar: ${fileName}`);
-          break; // Sai do loop se encontrar o arquivo
-        }
-      } catch (e) {
-        // Ignora o erro e tenta o próximo arquivo
-        console.log(`Tentativa falhou para: ${fileName}`);
-      }
-    }
-    
-    if (csvText) {
-      processCSVData(csvText);
-    } else {
-      throw new Error("Nenhum dos arquivos CSV foi encontrado.");
-    }
+    const csvText = await response.text();
+    processCSVData(csvText);
     
   } catch (error) {
     console.warn('Requisição Fetch falhou.', error);
