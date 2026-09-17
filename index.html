@@ -29,8 +29,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
     <style>
         @keyframes float {
@@ -146,6 +144,38 @@
         }
         .nav-pill:hover { background: rgba(255,255,255,0.08); color: #f2f2f5; }
         .nav-pill.active { color: #0a0a0f; background: #2dd4a7; border-color: #2dd4a7; }
+
+        /* ===== Exportação em PDF (download direto) ===== */
+        /* Enquanto o PDF é gerado, a página fica "limpa": sem orbs, sem painel flutuante,
+           sem sombras/animações e sem elementos fixos, para a captura sair idêntica ao relatório. */
+        body.exportando-pdf .orb,
+        body.exportando-pdf #painelFixoToggles,
+        body.exportando-pdf .multiselect-panel { display: none !important; }
+        body.exportando-pdf [class*="blur-"] { display: none !important; }
+        body.exportando-pdf * { animation: none !important; transition: none !important; }
+        body.exportando-pdf .card { box-shadow: none !important; transform: none !important; }
+        body.exportando-pdf .sticky { position: static !important; }
+
+        #pdfOverlay {
+            position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 14px;
+            background: rgba(10,10,15,0.82); backdrop-filter: blur(2px);
+            color: #f2f2f5; font-size: 14px; font-weight: 500; letter-spacing: 0.02em;
+        }
+        #pdfOverlay .loader { width: 34px; height: 34px; border-width: 4px; }
+
+        /* Impressão nativa continua disponível como plano B (Ctrl+P). */
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            html, body { background: #0a0a0f !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+            .orb, #painelFixoToggles, nav.mb-5, .search-wrap, .multiselect-panel,
+            #btnPrev, #btnNext, #pageIndicator, .card:hover { display: none !important; }
+            * { animation: none !important; transition: none !important; box-shadow: none !important; }
+            .card { break-inside: avoid; page-break-inside: avoid; border: 1px solid rgba(255,255,255,0.12) !important; transform: none !important; }
+            section { break-inside: avoid-page; }
+            canvas { max-width: 100% !important; }
+            #tabelaRanking tr { break-inside: avoid; }
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 font-sans antialiased">
@@ -165,7 +195,7 @@
             S&amp;OP
         </label>
 
-        <button type="button" id="btnExportarPdf" class="flex items-center gap-2 cursor-pointer bg-[#14141c]/95 backdrop-blur-sm border border-[#5b8def]/40 px-4 py-2.5 rounded-xl text-sm font-medium text-[#f2f2f5] hover:border-[#5b8def] transition-all shadow-[0_4px_20px_rgba(0,0,0,0.4),0_0_15px_rgba(91,141,239,0.15)] disabled:opacity-60 disabled:cursor-wait">
+        <button type="button" id="btnExportarPdf" title="Gera e baixa o PDF do relatório completo, com todos os gráficos como aparecem na tela" class="flex items-center gap-2 cursor-pointer bg-[#14141c]/95 backdrop-blur-sm border border-[#5b8def]/40 px-4 py-2.5 rounded-xl text-sm font-medium text-[#f2f2f5] hover:border-[#5b8def] transition-all shadow-[0_4px_20px_rgba(0,0,0,0.4),0_0_15px_rgba(91,141,239,0.15)] disabled:opacity-60 disabled:cursor-wait">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
@@ -341,25 +371,25 @@
         <div class="card p-6">
             <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Classe</h3>
             <p class="text-xs text-[#63637a] mb-4">Proporção de custos alocados nas categorias (Top 7).</p>
-            <div class="relative h-[300px] w-full flex justify-center"><canvas id="chartClasse"></canvas></div>
+            <div class="relative h-[330px] w-full flex justify-center"><canvas id="chartClasse"></canvas></div>
         </div>
         <div class="card p-6">
             <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Filial</h3>
             <p class="text-xs text-[#63637a] mb-4">Volume total de compra consolidado por estado.</p>
-            <div class="relative h-[300px] w-full"><canvas id="chartFilial"></canvas></div>
+            <div class="relative h-[330px] w-full"><canvas id="chartFilial"></canvas></div>
         </div>
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.27s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Insumo (Custo) x S&amp;OP</h3>
         <p class="text-xs text-[#63637a] mb-4">% do custo de insumo em relação ao Faturamento e ao S&amp;OP, e do Faturamento em relação ao S&amp;OP, por mês.</p>
-        <div class="relative h-[350px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
+        <div class="relative h-[390px] w-full"><canvas id="chartInsumoPrevisao"></canvas></div>
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.28s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Quantidade x Custo por Mês</h3>
         <p class="text-xs text-[#63637a] mb-4">Colunas: soma da coluna QUANTIDADE por mês. Linha: custo total por mês. Aplique os filtros no topo (ex: Filial) para ver o comportamento de quantidade x preço em cada recorte.</p>
-        <div class="relative h-[350px] w-full"><canvas id="chartQtdCustoMes"></canvas></div>
+        <div class="relative h-[390px] w-full"><canvas id="chartQtdCustoMes"></canvas></div>
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8 fade-up" style="animation-delay:0.3s">
@@ -371,19 +401,19 @@
                 </div>
                 <div id="percentInsumoFat"></div>
             </div>
-            <div class="relative h-[300px] w-full mt-3"><canvas id="chartMediaMes"></canvas></div>
+            <div class="relative h-[330px] w-full mt-3"><canvas id="chartMediaMes"></canvas></div>
         </div>
         <div class="card p-6">
             <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Gasto por Componente (Top 10)</h3>
             <p class="text-xs text-[#63637a] mb-4">Maiores insumos direcionadores de custos.</p>
-            <div class="relative h-[300px] w-full"><canvas id="chartComponente"></canvas></div>
+            <div class="relative h-[330px] w-full"><canvas id="chartComponente"></canvas></div>
         </div>
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.32s">
         <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Evolução do Gasto: Ano x Ano</h3>
         <p class="text-xs text-[#63637a] mb-4">Comparativo mensal do comportamento de compras (e faturamento e S&amp;OP) ao longo dos anos.</p>
-        <div class="relative h-[350px] w-full"><canvas id="chartEvolucao"></canvas></div>
+        <div class="relative h-[390px] w-full"><canvas id="chartEvolucao"></canvas></div>
     </section>
 
     <section class="card p-6 mb-8 fade-up" style="animation-delay:0.37s">
@@ -440,7 +470,7 @@
                 <h3 class="text-lg font-heading font-semibold text-[#f2f2f5] mb-1">Custo Total Por Insumo (Curva ABC)</h3>
                 <p class="text-xs text-[#63637a]">Detalhamento dos insumos geradores de custos.</p>
             </div>
-            <div class="relative">
+            <div class="relative search-wrap">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#63637a]"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" id="searchInput" class="search-input" placeholder="Buscar componente ou classe...">
             </div>
@@ -516,12 +546,88 @@
         Chart.defaults.plugins.tooltip.titleFont = { family: 'Inter', weight: '600' };
         Chart.defaults.plugins.tooltip.bodyFont = { family: 'JetBrains Mono' };
 
-        // Rótulos inteligentes: sempre visíveis (não escondem por sobreposição), mantidos dentro da área do gráfico.
-        const defaultDataLabelsConfig = {
-            anchor: 'end', align: 'end', color: (ctx) => ctx.dataset.backgroundColor || ctx.dataset.borderColor || '#ffffff',
-            textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,0.9)',
-            font: { weight: 'bold', size: 10 }, display: true, clamp: true, clip: false, formatter: (value) => formatShortBRL(value)
+        // =========================================================================
+        // RÓTULOS ANTI-SOBREPOSIÇÃO
+        // 1) "chip" escuro atrás do número -> legível mesmo por cima de barras/linhas;
+        // 2) display: 'auto' -> o plugin descarta automaticamente um rótulo que colidiria
+        //    com outro já desenhado (em vez de empilhar números ilegíveis);
+        // 3) barras com muitas categorias (meses, top 10) ganham rótulo na vertical,
+        //    o que elimina a colisão horizontal e mantém TODOS os valores visíveis;
+        // 4) linhas alinham o rótulo para fora da curva (acima em picos, abaixo em vales).
+        // =========================================================================
+        const labelChip = {
+            backgroundColor: 'rgba(10,10,15,0.78)',
+            borderColor: 'rgba(255,255,255,0.06)',
+            borderWidth: 1,
+            borderRadius: 5,
+            padding: { top: 2, bottom: 2, left: 5, right: 5 }
         };
+
+        // Os rótulos SEMPRE ficam na horizontal. Quando há muitas categorias (ex.: 12 meses,
+        // Top 10), em vez de girar o texto usamos três recursos combinados:
+        //   a) formato compacto e sem "R$" (1,2M / 840k) -> ocupa quase metade da largura;
+        //   b) zigue-zague: rótulos vizinhos alternam entre uma linha mais baixa e uma mais alta,
+        //      então dois números lado a lado nunca disputam o mesmo espaço;
+        //   c) display 'auto' como rede de segurança para qualquer colisão restante.
+        const muitasCategorias = (qtdCategorias) => qtdCategorias > 7;
+        const paddingBarras = (denso) => ({ top: denso ? 48 : 30, right: 12, left: 8, bottom: 2 });
+        const paddingLinhas = { top: 34, right: 16, left: 12, bottom: 16 };
+
+        // Valor curto e sem prefixo, para caber na horizontal em gráficos cheios.
+        const formatCompacto = (value) => {
+            if (!value || value === 0) return '';
+            if (value >= 1000000) return (value / 1000000).toFixed(1).replace('.', ',') + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(0) + 'k';
+            return value.toFixed(0);
+        };
+
+        // Alterna a altura do rótulo conforme a posição (barra par x ímpar, dataset par x ímpar).
+        const offsetZigueZague = (ctx) => (((ctx.dataIndex + ctx.datasetIndex) % 2) === 0 ? 3 : 17);
+
+        function dataLabelsBarras(denso, extra) {
+            return Object.assign({
+                anchor: 'end', align: 'end',
+                rotation: 0,
+                offset: denso ? offsetZigueZague : 3,
+                color: (ctx) => ctx.dataset.backgroundColor || ctx.dataset.borderColor || '#ffffff',
+                font: { weight: 'bold', size: denso ? 9 : 10 },
+                display: 'auto', clamp: true, clip: false,
+                formatter: (value) => denso ? formatCompacto(value) : formatShortBRL(value)
+            }, labelChip, extra || {});
+        }
+
+        function alinhaForaDaCurva(ctx) {
+            const dados = ctx.dataset.data || [];
+            const atual = Number(dados[ctx.dataIndex]);
+            const vizinhos = [Number(dados[ctx.dataIndex - 1]), Number(dados[ctx.dataIndex + 1])].filter(v => Number.isFinite(v));
+            if (!vizinhos.length || !Number.isFinite(atual)) return 'top';
+            const media = vizinhos.reduce((a, b) => a + b, 0) / vizinhos.length;
+            return atual < media ? 'bottom' : 'top';
+        }
+
+        function dataLabelsLinhas(extra) {
+            return Object.assign({
+                anchor: 'center', align: alinhaForaDaCurva, offset: 7,
+                color: (ctx) => ctx.dataset.borderColor || '#ffffff',
+                font: { weight: 'bold', size: 10 },
+                display: 'auto', clamp: true, clip: false,
+                formatter: (value) => formatCompacto(value)
+            }, labelChip, extra || {});
+        }
+
+        function dataLabelsRosca(dados) {
+            const total = dados.reduce((a, b) => a + b, 0) || 1;
+            return Object.assign({
+                color: '#ffffff',
+                font: { weight: 'bold', size: 11 },
+                formatter: (value) => formatShortBRL(value),
+                // fatias muito pequenas não recebem rótulo; as demais usam 'auto'
+                display: (c) => ((c.dataset.data[c.dataIndex] / total) > 0.04 ? 'auto' : false)
+            }, labelChip);
+        }
+
+        // Mantido por compatibilidade com gráficos de barra simples.
+        const defaultDataLabelsConfig = dataLabelsBarras(false);
 
         // =========================================================================
         // SINCRONIZAÇÃO AUTOMÁTICA DOS TRÊS ARQUIVOS LOCAIS NA MESMA PASTA
@@ -965,7 +1071,7 @@
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0)).slice(0, 7);
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartClasse').getContext('2d');
-            chartInstances['chartClasse'] = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colorsArr, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0', boxWidth: 12 } }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: { color: '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,0.9)', font: { weight: 'bold', size: 11 }, formatter: (value) => formatShortBRL(value), display: function(c) { return c.dataset.data[c.dataIndex] > (data.reduce((a,b)=>a+b,0) * 0.05); } } }, cutout: '70%' } });
+            chartInstances['chartClasse'] = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: data, backgroundColor: colorsArr, borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0', boxWidth: 12 } }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: dataLabelsRosca(data) }, cutout: '70%' } });
         }
 
         function renderChartFilial() {
@@ -974,10 +1080,11 @@
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0));
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartFilial').getContext('2d');
+            const rot = muitasCategorias(labels.length);
             chartInstances['chartFilial'] = new Chart(ctx, {
                 type: 'bar',
                 data: { labels: labels, datasets: [{ label: 'Gasto Filial', data: data, backgroundColor: '#2dd4a7', borderRadius: 4 }] },
-                options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } }
+                options: { responsive: true, maintainAspectRatio: false, layout: { padding: paddingBarras(rot) }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: dataLabelsBarras(rot) }, scales: { x: { ticks: { autoSkip: false, maxRotation: 40, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } }
             });
         }
 
@@ -1005,7 +1112,8 @@
             }
 
             const ctx = document.getElementById('chartMediaMes').getContext('2d');
-            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0'} }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw), afterBody: (items) => { if (!isFatActive) return ''; const idx = items[0].dataIndex; const insumo = dataInsumos[idx]; const fat = dataFat[idx]; if (fat > 0) { return [`Insumos = ${((insumo / fat) * 100).toFixed(1)}% do faturamento`]; } return ''; } } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            const rot = muitasCategorias(mesesOrdenados.length);
+            chartInstances['chartMediaMes'] = new Chart(ctx, { type: 'bar', data: { labels: mesesOrdenados, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: paddingBarras(rot) }, plugins: { legend: { display: isFatActive, labels: { color: '#e2e8f0', boxWidth: 12, padding: 14 } }, tooltip: { callbacks: { label: (ctx) => ' ' + formatBRL(ctx.raw), afterBody: (items) => { if (!isFatActive) return ''; const idx = items[0].dataIndex; const insumo = dataInsumos[idx]; const fat = dataFat[idx]; if (fat > 0) { return [`Insumos = ${((insumo / fat) * 100).toFixed(1)}% do faturamento`]; } return ''; } } }, datalabels: dataLabelsBarras(rot) }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
         function renderChartQtdCustoMes() {
@@ -1034,12 +1142,10 @@
                             borderRadius: 4,
                             yAxisID: 'yQtd',
                             order: 2,
-                            datalabels: {
-                                display: true, clamp: true, clip: false, anchor: 'end', align: 'top', offset: 4,
-                                color: '#5b8def', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,0.9)',
-                                font: { size: 10, weight: 'bold' },
-                                formatter: (val) => val > 0 ? val.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : ''
-                            }
+                            datalabels: dataLabelsBarras(true, {
+                                color: '#5b8def',
+                                formatter: (val) => val > 0 ? formatCompacto(val) : ''
+                            })
                         },
                         {
                             type: 'line',
@@ -1054,20 +1160,18 @@
                             tension: 0.3,
                             yAxisID: 'yCusto',
                             order: 1,
-                            datalabels: {
-                                display: true, clamp: true, clip: false, anchor: 'end', align: 'top', offset: 6,
-                                color: '#f5944b', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,0.9)',
-                                font: { size: 10, weight: 'bold' },
-                                formatter: (val) => val > 0 ? formatShortBRL(val) : ''
-                            }
+                            datalabels: dataLabelsLinhas({
+                                color: '#f5944b',
+                                formatter: (val) => val > 0 ? formatCompacto(val) : ''
+                            })
                         }
                     ]
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    layout: { padding: { top: 25 } },
+                    layout: { padding: { top: 48, right: 12, left: 8, bottom: 4 } },
                     plugins: {
-                        legend: { display: true, position: 'bottom', labels: { color: '#e2e8f0', boxWidth: 12 } },
+                        legend: { display: true, position: 'bottom', labels: { color: '#e2e8f0', boxWidth: 12, padding: 14 } },
                         tooltip: {
                             callbacks: {
                                 label: (ctx) => ctx.dataset.label === 'Custo Total'
@@ -1097,7 +1201,8 @@
             const labels = Object.keys(agrupado).sort((a,b) => agrupado[b].reduce((s,i)=>s+i.custoTotal,0) - agrupado[a].reduce((s,i)=>s+i.custoTotal,0)).slice(0, 10);
             const data = labels.map(l => agrupado[l].reduce((acc, val) => acc + val.custoTotal, 0));
             const ctx = document.getElementById('chartComponente').getContext('2d');
-            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#a480f2', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: defaultDataLabelsConfig }, scales: { y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
+            const rot = muitasCategorias(labels.length);
+            chartInstances['chartComponente'] = new Chart(ctx, { type: 'bar', data: { labels: labels.map(l => l.length > 12 ? l.substring(0, 12) + '...' : l), datasets: [{ label: 'Custo Insumo', data: data, backgroundColor: '#a480f2', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: paddingBarras(rot) }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => labels[items[0].dataIndex], label: (ctx) => ' ' + formatBRL(ctx.raw) } }, datalabels: dataLabelsBarras(rot) }, scales: { x: { ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } } } });
         }
 
         // Cálculo compartilhado: % de Insumo vs Faturamento, % de Insumo vs S&OP e % de Faturamento vs S&OP, por mês.
@@ -1190,19 +1295,17 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    layout: { padding: { top: 25 } },
+                    layout: { padding: paddingLinhas },
                     plugins: {
-                        legend: { display: true, labels: { color: '#e2e8f0' } },
+                        legend: { display: true, labels: { color: '#e2e8f0', boxWidth: 12, padding: 14 } },
                         tooltip: {
                             mode: 'index',
                             callbacks: { label: (ctx) => tooltipLabelInsumoPrevisao(ctx, calc) }
                         },
-                        datalabels: {
-                            color: (ctx) => ctx.dataset.borderColor || '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,0.9)',
-                            font: { weight: 'bold', size: 10 }, align: 'top', offset: 4, clamp: true, clip: false,
+                        datalabels: dataLabelsLinhas({
                             formatter: (value) => value === null ? '' : value.toFixed(1) + '%',
-                            display: (context) => context.dataset.data[context.dataIndex] !== null
-                        }
+                            display: (c) => (c.dataset.data[c.dataIndex] === null ? false : 'auto')
+                        })
                     },
                     scales: {
                         x: { grid: { display: true, color: 'rgba(255,255,255,0.05)' } },
@@ -1290,7 +1393,7 @@
                 return;
             }
 
-            chartInstances['chartEvolucao'] = new Chart(ctx, { type: 'line', data: { labels: mesesEixo, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 25 } }, plugins: { legend: { display: true, labels: { color: '#e2e8f0'} }, tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatBRL(ctx.raw) } }, datalabels: { anchor: 'end', align: 'top', offset: 4, clamp: true, clip: false, color: (ctx) => ctx.dataset.borderColor || '#ffffff', textShadowBlur: 6, textShadowColor: 'rgba(0,0,0,0.9)', font: { size: 10, weight: 'bold' }, display: true, formatter: (val) => val > 0 ? formatShortBRL(val) : '' } }, scales: { y: { beginAtZero: true, ticks: { callback: (val) => 'R$ ' + (val/1000).toFixed(0) + 'k' } } } } });
+            chartInstances['chartEvolucao'] = new Chart(ctx, { type: 'line', data: { labels: mesesEixo, datasets: datasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: paddingLinhas }, plugins: { legend: { display: true, labels: { color: '#e2e8f0', boxWidth: 12, padding: 14 } }, tooltip: { mode: 'index', intersect: false, callbacks: { label: (ctx) => ctx.dataset.label + ': ' + formatBRL(ctx.raw) } }, datalabels: dataLabelsLinhas({ formatter: (val) => val > 0 ? formatCompacto(val) : '' }) }, scales: { y: { beginAtZero: true, ticks: { callback: (val) => 'R$ ' + (val/1000).toFixed(0) + 'k' } } } } });
         }
 
         function processarDadosTabela() {
@@ -1408,104 +1511,145 @@
         document.getElementById('btnNext').addEventListener('click', () => { const totalPages = Math.ceil(tabelaFiltrada.length / itemsPerPage); if (currentPage < totalPages) { currentPage++; renderizarPaginaTabela(); }});
 
         // =========================================================================
-        // EXPORTAR RELATÓRIO EM PDF (para apresentações)
-        // Tira um "print" de alta resolução da área do relatório (reportCaptureArea)
-        // e monta um PDF em A4, fatiado em quantas páginas forem necessárias.
+        // EXPORTAR RELATÓRIO EM PDF — DOWNLOAD DIRETO
+        // Captura cada bloco do relatório (cabeçalho, filtros, KPIs, TODOS os gráficos,
+        // projeção e tabela) com html2canvas, exatamente como está na tela, e monta um
+        // PDF A4 paisagem com jsPDF. O arquivo baixa sozinho, sem janela de impressão.
+        // Se as bibliotecas não carregarem (sem internet), cai no plano B: window.print().
         // =========================================================================
+        const PDF_LIB_HTML2CANVAS = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        const PDF_LIB_JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+        const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+
+        function carregarScriptExterno(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.async = true;
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('não foi possível carregar ' + src));
+                document.head.appendChild(s);
+            });
+        }
+
+        async function garantirLibsPDF() {
+            if (!window.html2canvas) await carregarScriptExterno(PDF_LIB_HTML2CANVAS);
+            if (!window.jspdf) await carregarScriptExterno(PDF_LIB_JSPDF);
+            if (!window.html2canvas || !window.jspdf) throw new Error('bibliotecas de PDF indisponíveis');
+        }
+
+        function abrirOverlayPDF() {
+            const el = document.createElement('div');
+            el.id = 'pdfOverlay';
+            el.innerHTML = '<div class="loader"></div><span id="pdfOverlayTexto">Preparando o relatório...</span>';
+            document.body.appendChild(el);
+            return el;
+        }
+        function atualizarOverlayPDF(texto) {
+            const t = document.getElementById('pdfOverlayTexto');
+            if (t) t.innerText = texto;
+        }
+
+        // Blocos que entram no PDF, na mesma ordem em que aparecem na página.
+        function blocosDoRelatorio() {
+            const area = document.getElementById('reportCaptureArea');
+            const blocos = [];
+            const header = area.querySelector('header');
+            if (header) blocos.push(header);
+            area.querySelectorAll(':scope > section').forEach(sec => blocos.push(sec));
+            return blocos;
+        }
+
         async function exportarRelatorioPDF() {
             const btn = document.getElementById('btnExportarPdf');
-            const btnLabel = document.getElementById('btnExportarPdfLabel');
-            const painelFixo = document.getElementById('painelFixoToggles');
-            const orbs = document.querySelectorAll('.orb');
-            const area = document.getElementById('reportCaptureArea');
-            const labelOriginal = btnLabel.textContent;
+            const label = document.getElementById('btnExportarPdfLabel');
+            const textoBotao = label.innerText;
+            const scrollAnterior = window.scrollY;
+            let overlay = null;
 
             btn.disabled = true;
-            btnLabel.textContent = 'Gerando PDF...';
-
-            // Esconde elementos flutuantes/decorativos que não devem aparecer na imagem exportada
-            painelFixo.style.visibility = 'hidden';
-            orbs.forEach(o => o.style.visibility = 'hidden');
-
-            // O html2canvas não consegue "ler" corretamente o conteúdo desenhado pelo Chart.js
-            // dentro das tags <canvas>. Para garantir que os gráficos apareçam no PDF, cada
-            // canvas é temporariamente substituído por uma imagem (PNG) do próprio gráfico,
-            // e depois o canvas original é restaurado no lugar exato.
-            const chartSwaps = [];
-            Object.keys(chartInstances).forEach(id => {
-                const chart = chartInstances[id];
-                const canvas = document.getElementById(id);
-                if (!chart || !canvas || !area.contains(canvas)) return;
-                try {
-                    const img = document.createElement('img');
-                    img.src = chart.toBase64Image('image/png', 1.0);
-                    img.style.cssText = canvas.style.cssText;
-                    img.style.display = canvas.style.display || 'block';
-                    img.width = canvas.width;
-                    img.height = canvas.height;
-                    canvas.replaceWith(img);
-                    chartSwaps.push({ canvas, img });
-                } catch (e) {
-                    console.warn('Não foi possível converter o gráfico', id, e);
-                }
-            });
+            label.innerText = 'PREPARANDO...';
 
             try {
-                await new Promise(resolve => setTimeout(resolve, 80)); // garante repaint antes do snapshot
+                overlay = abrirOverlayPDF();
+                await garantirLibsPDF();
 
-                const canvas = await html2canvas(area, {
-                    backgroundColor: '#0a0a0f',
-                    scale: Math.min(2, window.devicePixelRatio || 1.5),
-                    useCORS: true,
-                    logging: false
-                });
+                // Fecha painéis de filtro abertos e sobe ao topo (a captura usa a posição real dos elementos).
+                document.querySelectorAll('.multiselect-panel').forEach(pn => pn.classList.add('hidden'));
+                document.querySelectorAll('[data-ms-wrapper]').forEach(w => w.classList.remove('ms-active'));
+                window.scrollTo(0, 0);
+                document.body.classList.add('exportando-pdf');
 
+                // Redesenha os gráficos em resolução dobrada para o PDF não sair pixelado.
+                const graficos = Object.values(chartInstances).filter(Boolean);
+                graficos.forEach(c => { c.options.devicePixelRatio = 2; c.resize(); });
+                await esperar(450);
+
+                const blocos = blocosDoRelatorio();
                 const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-                const pageWidth = pdf.internal.pageSize.getWidth();
-                const pageHeight = pdf.internal.pageSize.getHeight();
-                const margin = 8;
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+                const pageW = doc.internal.pageSize.getWidth();
+                const pageH = doc.internal.pageSize.getHeight();
+                const margem = 8;
+                const alturaRodape = 7;
+                const larguraUtil = pageW - margem * 2;
+                const alturaUtil = pageH - margem * 2 - alturaRodape;
 
-                const imgWidthMm = pageWidth - (margin * 2);
-                const pageHeightPx = ((pageHeight - (margin * 2)) * canvas.width) / imgWidthMm;
+                const pintarFundo = () => { doc.setFillColor(10, 10, 15); doc.rect(0, 0, pageW, pageH, 'F'); };
+                pintarFundo();
+                let y = margem;
 
-                let renderedHeightPx = 0;
-                let primeiraPagina = true;
+                for (let i = 0; i < blocos.length; i++) {
+                    atualizarOverlayPDF('Capturando bloco ' + (i + 1) + ' de ' + blocos.length + '...');
+                    label.innerText = 'GERANDO ' + (i + 1) + '/' + blocos.length;
 
-                while (renderedHeightPx < canvas.height) {
-                    const sliceHeightPx = Math.min(pageHeightPx, canvas.height - renderedHeightPx);
+                    const canvas = await window.html2canvas(blocos[i], {
+                        backgroundColor: '#0f0f16',
+                        scale: 2,
+                        useCORS: true,
+                        logging: false,
+                        scrollX: 0,
+                        scrollY: 0
+                    });
+                    if (!canvas.width || !canvas.height) continue;
 
-                    const pageCanvas = document.createElement('canvas');
-                    pageCanvas.width = canvas.width;
-                    pageCanvas.height = sliceHeightPx;
-                    const pageCtx = pageCanvas.getContext('2d');
-                    pageCtx.fillStyle = '#0a0a0f';
-                    pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-                    pageCtx.drawImage(canvas, 0, renderedHeightPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+                    let w = larguraUtil;
+                    let h = (canvas.height * larguraUtil) / canvas.width;
+                    if (h > alturaUtil) { h = alturaUtil; w = (canvas.width * alturaUtil) / canvas.height; }
 
-                    const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
-                    const sliceHeightMm = (sliceHeightPx * imgWidthMm) / canvas.width;
+                    // Bloco não cabe no que sobrou da página? Vai inteiro para a próxima (nunca corta um gráfico).
+                    if (y > margem && (y + h) > (margem + alturaUtil)) { doc.addPage(); pintarFundo(); y = margem; }
 
-                    if (!primeiraPagina) pdf.addPage();
-                    pdf.addImage(pageImgData, 'JPEG', margin, margin, imgWidthMm, sliceHeightMm);
-                    primeiraPagina = false;
-
-                    renderedHeightPx += sliceHeightPx;
+                    doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', margem + (larguraUtil - w) / 2, y, w, h, undefined, 'FAST');
+                    y += h + 5;
                 }
 
-                const dataStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-                pdf.save(`Relatorio-Curva-ABC-GrupoRFK-${dataStr}.pdf`);
-            } catch (err) {
-                console.error('Erro ao gerar PDF:', err);
-                alert('Não foi possível gerar o PDF. Tente novamente.');
-            } finally {
-                // Restaura os canvas originais dos gráficos no lugar das imagens temporárias
-                chartSwaps.forEach(({ canvas, img }) => { img.replaceWith(canvas); });
+                atualizarOverlayPDF('Finalizando o arquivo...');
+                const agora = new Date();
+                const dataBR = agora.toLocaleDateString('pt-BR');
+                const totalPaginas = doc.internal.getNumberOfPages();
+                for (let pg = 1; pg <= totalPaginas; pg++) {
+                    doc.setPage(pg);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 168);
+                    doc.text('Relatório Curva ABC - Grupo RFK | gerado em ' + dataBR, margem, pageH - 4);
+                    doc.text('Página ' + pg + ' de ' + totalPaginas, pageW - margem, pageH - 4, { align: 'right' });
+                }
 
-                painelFixo.style.visibility = 'visible';
-                orbs.forEach(o => o.style.visibility = 'visible');
+                const carimbo = agora.getFullYear() + '-' + String(agora.getMonth() + 1).padStart(2, '0') + '-' + String(agora.getDate()).padStart(2, '0');
+                doc.save('Relatorio-Curva-ABC-GrupoRFK-' + carimbo + '.pdf');
+            } catch (erro) {
+                console.error(erro);
+                alert('Não foi possível gerar o PDF automaticamente (' + erro.message + '). Vou abrir a impressão do navegador: escolha "Salvar como PDF" como destino.');
+                window.print();
+            } finally {
+                document.body.classList.remove('exportando-pdf');
+                Object.values(chartInstances).filter(Boolean).forEach(c => { delete c.options.devicePixelRatio; c.resize(); });
+                if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                window.scrollTo(0, scrollAnterior);
                 btn.disabled = false;
-                btnLabel.textContent = labelOriginal;
+                label.innerText = textoBotao;
             }
         }
 
