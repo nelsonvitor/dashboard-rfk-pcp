@@ -682,11 +682,8 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
 async function loadData() {
   try {
     // 1. Tenta carregar o base_kamban.csv original ou o nome que o usuário relatou
-    let response = await fetch('base_kamban_2.csv');
+    let response = await fetch('base_kamban.csv');
     
-    // Fallback caso o nome seja base_kamban.csv
-    if (!response.ok) {
-        response = await fetch('base_kamban.csv');
     }
 
     if (!response.ok) throw new Error('Falha HTTP: ' + response.status);
