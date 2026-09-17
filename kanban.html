@@ -240,11 +240,14 @@ let charts = {};
 const fmtInt = v => Math.round(Number(v)||0).toLocaleString('pt-BR');
 const fmtDec = (v, d=1) => Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
 
-function uniqueValues(key){
-  return [...new Set(RAW_DATA.map(r => (r[key] === null || r[key] === undefined || String(r[key]).trim() === '') ? '(Não informado)' : r[key])))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+function uniqueValues(key) {
+  return [...new Set(RAW_DATA.map(r => {
+    const val = r[key];
+    return (val === null || val === undefined || String(val).trim() === '') ? '(Não informado)' : val;
+  }))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
 }
 
-function normKey(r, key){
+function normKey(r, key) {
   const v = r[key];
   return (v === null || v === undefined || String(v).trim() === '') ? '(Não informado)' : v;
 }
@@ -288,7 +291,7 @@ function renderKpis(){
         state.filters.kanbanAtual.clear();
       } else {
         const set = state.filters.kanbanAtual;
-        const exactMatch = uniqueValues('kanbanAtual').find(v => v.toUpperCase() === key);
+        const exactMatch = uniqueValues('kanbanAtual').find(v => String(v).toUpperCase() === key);
         if(exactMatch) {
             if (set.has(exactMatch) && set.size === 1) set.clear();
             else { set.clear(); set.add(exactMatch); }
@@ -306,7 +309,7 @@ function highlightActiveKpi(){
   const active = state.filters.kanbanAtual;
   document.querySelectorAll('[data-kpi]').forEach(el => {
     const key = el.dataset.kpi;
-    const isActiveMatch = Array.from(active).some(v => v.toUpperCase() === key);
+    const isActiveMatch = Array.from(active).some(v => String(v).toUpperCase() === key);
     const isActive = (key === '__all__' && active.size === 0) || (active.size > 0 && isActiveMatch);
     el.classList.toggle('active', isActive);
   });
