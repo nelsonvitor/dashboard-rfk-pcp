@@ -25,6 +25,8 @@
   }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Adicionando PapaParse para leitura robusta de CSV -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   @keyframes float { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(30px,-40px) scale(1.08);} 66%{transform:translate(-20px,25px) scale(0.95);} }
   @keyframes fadeUp { from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
@@ -83,10 +85,14 @@
   .btn-ghost{ background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); color:#f2f2f5; font-size:11px; font-weight:600; padding:6px 12px; border-radius:8px; cursor:pointer; transition: background .2s, border-color .2s; white-space:nowrap; }
   .btn-ghost:hover{ background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
 
-  /* ===== Navegação entre relatórios ===== */
   .nav-pill{ padding:8px 16px; border-radius:10px; font-size:13px; font-weight:600; text-decoration:none; color:#a8a8b8; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); transition: background-color .2s, color .2s, border-color .2s; white-space:nowrap; }
   .nav-pill:hover{ background: rgba(255,255,255,.08); color:#f2f2f5; }
   .nav-pill.active{ color:#0a0a0f; background:#2dd4a7; border-color:#2dd4a7; }
+
+  /* Elementos de fallback */
+  #filePickerContainer { display: none; }
+  .btn-primary { background: #2dd4a7; color: #0a0a0f; font-weight: 600; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: opacity 0.2s; border: none; }
+  .btn-primary:hover { opacity: 0.9; }
 </style>
 </head>
 <body class="min-h-screen p-4 md:p-8 font-sans antialiased">
@@ -102,11 +108,24 @@
 <header class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 fade-up">
   <div>
     <h1 class="text-3xl font-heading font-bold text-[#f2f2f5] tracking-tight flex items-center gap-3">
-      PAINEL DE ESTOQUE — KANBAN DE REPOSIÇÃO
+      PAINEL DE ESTOQUE
     </h1>
     <p class="text-[#a8a8b8] text-sm mt-1 uppercase tracking-[0.15em] font-medium">Controle de Produção · Fábrica de Bebidas</p>
   </div>
-  <div id="lastUpdate" class="flex items-center gap-3 bg-[#14141c] border border-[rgba(255,255,255,0.07)] px-5 py-2.5 rounded-xl font-medium text-sm text-[#a8a8b8]"></div>
+  
+  <div class="flex items-center gap-3">
+    <!-- Container de fallback para selecionar o arquivo manualmente -->
+    <div id="filePickerContainer" class="flex items-center gap-2 bg-[#14141c] border border-dashed border-[#ef6f6f] px-4 py-2 rounded-xl">
+      <span class="text-xs text-[#ef6f6f] font-medium mr-2">Erro de leitura. Selecione o CSV:</span>
+      <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+      <button onclick="document.getElementById('csvFileInput').click()" class="btn-primary">Procurar Arquivo</button>
+    </div>
+
+    <div id="lastUpdate" class="flex items-center gap-3 bg-[#14141c] border border-[rgba(255,255,255,0.07)] px-5 py-2.5 rounded-xl font-medium text-sm text-[#a8a8b8]">
+      <span style="width:8px;height:8px;border-radius:50%;background:#f5c94b;display:inline-block;"></span>
+      <strong style="color:#f2f2f5">Carregando dados...</strong>
+    </div>
+  </div>
 </header>
 
 <section id="kpiRow" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 fade-up" style="animation-delay:.02s"></section>
@@ -160,8 +179,8 @@
 
 <section class="card p-5 fade-up" style="animation-delay:.1s">
   <div class="overflow-x-auto">
-    <table class="w-full text-sm border-collapse">
-      <thead>
+    <table class="w-full text-sm border-collapse relative">
+      <thead class="sticky top-0 bg-[#14141c] z-10 shadow-[0_4px_10px_rgba(0,0,0,0.5)]">
         <tr class="text-left text-[#63637a] text-xs uppercase tracking-wider border-b border-[rgba(255,255,255,0.07)]">
           <th class="py-3 px-3" data-sort="produto">Produto <span class="sort-arrow">↕</span></th>
           <th class="py-3 px-3" data-sort="local">Local <span class="sort-arrow">↕</span></th>
@@ -188,7 +207,7 @@
   </div>
 </section>
 
-<footer class="text-center text-[11px] text-[#63637a] mt-6 pb-2">Dados carregados de base_kamban.csv · snapshot único por SKU e Local · cor de cada item definida pela coluna KAMBAN ATUAL</footer>
+<footer class="text-center text-[11px] text-[#63637a] mt-6 pb-2">Painel de Reposição · Snapshot único por SKU e Local</footer>
 
 <script>
 let RAW_DATA = [];
@@ -199,7 +218,10 @@ const KANBAN_META = {
   'VERMELHO':   { color:'#ef6f6f', label:'Vermelho',         order:2 },
   'ACIMA MAX':  { color:'#5b8def', label:'Acima do Máximo',  order:3 },
 };
-function kanbanMeta(v){ return KANBAN_META[v] || { color:'#63637a', label:v || '—', order:9 }; }
+function kanbanMeta(v){ 
+  const val = String(v).trim().toUpperCase();
+  return KANBAN_META[val] || { color:'#63637a', label:v || '—', order:9 }; 
+}
 
 const FILTERS_CONFIG = [
   { key:'local',      label:'Local' },
@@ -219,29 +241,26 @@ let filtered = [];
 let charts = {};
 
 // ---------- helpers ----------
-const fmtInt = v => Math.round(v).toLocaleString('pt-BR');
-const fmtDec = (v, d=1) => Number(v).toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
+const fmtInt = v => Math.round(Number(v)||0).toLocaleString('pt-BR');
+const fmtDec = (v, d=1) => Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
 
 function uniqueValues(key){
-  return [...new Set(RAW_DATA.map(r => (r[key] === null || r[key] === undefined || r[key] === '') ? '(Não informado)' : r[key])))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return [...new Set(RAW_DATA.map(r => (r[key] === null || r[key] === undefined || String(r[key]).trim() === '') ? '(Não informado)' : r[key])))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 }
 function normKey(r, key){
   const v = r[key];
-  return (v === null || v === undefined || v === '') ? '(Não informado)' : v;
+  return (v === null || v === undefined || String(v).trim() === '') ? '(Não informado)' : v;
 }
-
-// ---------- header ----------
-document.getElementById('lastUpdate').innerHTML = `
-  <span style="width:8px;height:8px;border-radius:50%;background:#f5c94b;display:inline-block;"></span>
-  <strong style="color:#f2f2f5">Carregando dados...</strong>
-`;
 
 // ---------- KPI cards ----------
 function computeKpis(list){
   const total = list.length;
   const counts = {};
   Object.keys(KANBAN_META).forEach(k => counts[k] = 0);
-  list.forEach(r => { counts[r.kanbanAtual] = (counts[r.kanbanAtual] || 0) + 1; });
+  list.forEach(r => { 
+    const k = String(r.kanbanAtual).trim().toUpperCase();
+    counts[k] = (counts[k] || 0) + 1; 
+  });
   return { total, counts };
 }
 
@@ -273,8 +292,12 @@ function renderKpis(){
         state.filters.kanbanAtual.clear();
       } else {
         const set = state.filters.kanbanAtual;
-        if (set.has(key) && set.size === 1) set.clear();
-        else { set.clear(); set.add(key); }
+        // Check exact match (ignoring case for logic, but stored as-is in options)
+        const exactMatch = uniqueValues('kanbanAtual').find(v => v.toUpperCase() === key);
+        if(exactMatch) {
+            if (set.has(exactMatch) && set.size === 1) set.clear();
+            else { set.clear(); set.add(exactMatch); }
+        }
       }
       syncMultiselectUI('kanbanAtual');
       state.page = 1;
@@ -287,7 +310,9 @@ function highlightActiveKpi(){
   const active = state.filters.kanbanAtual;
   document.querySelectorAll('[data-kpi]').forEach(el => {
     const key = el.dataset.kpi;
-    const isActive = (key === '__all__' && active.size === 0) || (active.size === 1 && active.has(key));
+    // Check if any of the active sets match this key when uppercased
+    const isActiveMatch = Array.from(active).some(v => v.toUpperCase() === key);
+    const isActive = (key === '__all__' && active.size === 0) || (active.size > 0 && isActiveMatch);
     el.classList.toggle('active', isActive);
   });
 }
@@ -295,7 +320,7 @@ function highlightActiveKpi(){
 // ---------- filters (multiselect) ----------
 function buildFilters(){
   const host = document.getElementById('filtersHost');
-  host.innerHTML = ''; // Limpa filtros anteriores, se existirem
+  host.innerHTML = '';
   FILTERS_CONFIG.forEach(cfg => {
     const options = uniqueValues(cfg.key);
     const wrapper = document.createElement('div');
@@ -325,7 +350,6 @@ function buildFilters(){
     host.appendChild(wrapper);
   });
 
-  // toggle open/close
   document.querySelectorAll('[data-ms-toggle]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -384,7 +408,6 @@ function syncMultiselectUI(key){
   if (key === 'kanbanAtual') highlightActiveKpi();
 }
 
-// ---------- filtering / sorting ----------
 function applyFilters(){
   const term = state.search.trim().toLowerCase();
   filtered = RAW_DATA.filter(r => {
@@ -402,18 +425,17 @@ function applyFilters(){
   filtered.sort((a,b) => {
     let va = a[key], vb = b[key];
     if (typeof va === 'string'){ va = va || ''; vb = vb || ''; return dir === 'asc' ? va.localeCompare(vb,'pt-BR') : vb.localeCompare(va,'pt-BR'); }
-    va = va || 0; vb = vb || 0;
+    va = Number(va) || 0; vb = Number(vb) || 0;
     return dir === 'asc' ? va - vb : vb - va;
   });
 }
 
-// ---------- table ----------
 function levelBarHtml(r){
   const maxScale = Math.max(r.estoqueMaximo || 0, r.estoqueAtual || 0, 1) * 1.02;
-  const pct = v => Math.max(0, Math.min(100, ((v||0) / maxScale) * 100));
-  const fillPct = Math.min(100, ((r.estoqueAtual||0) / maxScale) * 100);
+  const pct = v => Math.max(0, Math.min(100, ((Number(v)||0) / maxScale) * 100));
+  const fillPct = Math.min(100, ((Number(r.estoqueAtual)||0) / maxScale) * 100);
   const color = kanbanMeta(r.kanbanAtual).color;
-  const overflow = (r.estoqueAtual||0) > (r.estoqueMaximo||0);
+  const overflow = (Number(r.estoqueAtual)||0) > (Number(r.estoqueMaximo)||0);
   return `
     <div class="level-track" title="Segurança: ${fmtInt(r.estoqueSeguranca||0)} · Reposição: ${fmtInt(r.pontoReposicao||0)} · Máximo: ${fmtInt(r.estoqueMaximo||0)} · Atual: ${fmtInt(r.estoqueAtual||0)}">
       <div class="level-fill" style="width:${fillPct}%; background:${color};"></div>
@@ -421,7 +443,7 @@ function levelBarHtml(r){
       <div class="level-tick" style="left:${pct(r.pontoReposicao)}%"></div>
       <div class="level-tick" style="left:${pct(r.estoqueMaximo)}%"></div>
     </div>
-    <div class="text-[10px] text-[#63637a] mt-1 font-mono">${r.estoqueMaximo ? (((r.estoqueAtual||0)/(r.estoqueMaximo||1))*100).toFixed(0) : '0'}% do máx.${overflow ? ' · acima do máx.' : ''}</div>
+    <div class="text-[10px] text-[#63637a] mt-1 font-mono">${r.estoqueMaximo ? (((Number(r.estoqueAtual)||0)/(Number(r.estoqueMaximo)||1))*100).toFixed(0) : '0'}% do máx.${overflow ? ' · acima do máx.' : ''}</div>
   `;
 }
 function badgeHtml(value){
@@ -482,14 +504,7 @@ document.getElementById('btnNext').addEventListener('click', () => {
   if (state.page < totalPages){ state.page++; renderTable(); }
 });
 
-// ---------- charts ----------
-const SEGMENT_ORDER = ['VERMELHO', 'AMARELO', 'VERDE', 'ACIMA MAX'];
 const SEVERITY = { 'VERMELHO': 3, 'AMARELO': 2, 'ACIMA MAX': 1, 'VERDE': 0 };
-
-function fadedColor(hex){
-  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},0.12)`;
-}
 
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -498,31 +513,26 @@ function escapeHtml(s){
 function getProductLevels(){
   const map = new Map();
   filtered.forEach(r => {
-    const sevAtual = SEVERITY[r.kanbanAtual] ?? 0;
+    const s = String(r.kanbanAtual).trim().toUpperCase();
+    const sevAtual = SEVERITY[s] ?? 0;
     const cur = map.get(r.produto);
-    if (!cur || sevAtual > (SEVERITY[cur.kanbanAtual] ?? 0)) map.set(r.produto, r);
+    if (!cur || sevAtual > (SEVERITY[String(cur.kanbanAtual).trim().toUpperCase()] ?? 0)) map.set(r.produto, r);
   });
   return [...map.values()]
-    .sort((a, b) => (SEVERITY[b.kanbanAtual] ?? 0) - (SEVERITY[a.kanbanAtual] ?? 0) || String(a.produto||'').localeCompare(String(b.produto||''), 'pt-BR'));
+    .sort((a, b) => (SEVERITY[String(b.kanbanAtual).trim().toUpperCase()] ?? 0) - (SEVERITY[String(a.kanbanAtual).trim().toUpperCase()] ?? 0) || String(a.produto||'').localeCompare(String(b.produto||''), 'pt-BR'));
 }
 
 function renderProductLevelsChart(){
   const products = getProductLevels();
   const host = document.getElementById('productChartWrap');
-  charts.productLevels = null;
+  if (!products.length){ host.innerHTML = `<p class="text-xs text-[#63637a] py-6 text-center">Nenhum produto para os filtros selecionados.</p>`; return; }
 
-  if (!products.length){
-    host.innerHTML = `<p class="text-xs text-[#63637a] py-6 text-center">Nenhum produto para os filtros selecionados.</p>`;
-    return;
-  }
-
-  const maxVal = 30; // escala fixa: dias do mês
-
+  const maxVal = 30;
   host.innerHTML = products.map(p => {
     const mA = kanbanMeta(p.kanbanAtual);
     const mF = kanbanMeta(p.kanbanFuturo);
-    const coA = p.coberturaAtual || 0;
-    const coF = p.coberturaPlanejada || 0;
+    const coA = Number(p.coberturaAtual) || 0;
+    const coF = Number(p.coberturaPlanejada || p.coberturaFutura) || 0;
     const pctA = Math.min(100, Math.max(2, (coA / maxVal) * 100));
     const pctF = Math.min(100, Math.max(2, (coF / maxVal) * 100));
     const tipA = `Cobertura Atual: ${fmtDec(coA, 1)}d · ${mA.label}`;
@@ -558,7 +568,7 @@ function renderCharts(){
         labels: locais,
         datasets: statusKeys.map(k => ({
           label: KANBAN_META[k].label,
-          data: locais.map(loc => filtered.filter(r => r.local === loc && r[field] === k).length),
+          data: locais.map(loc => filtered.filter(r => r.local === loc && String(r[field]).trim().toUpperCase() === k).length),
           backgroundColor: KANBAN_META[k].color,
           borderRadius: 4,
         }))
@@ -575,7 +585,6 @@ function renderCharts(){
   renderLocalBarChart('chartLocalFuturo', 'localFuturo', 'kanbanFuturo');
 }
 
-// ---------- export ----------
 document.getElementById('btnExport').addEventListener('click', () => {
   const headers = ['Produto','Codigo','Local','Categoria','Marca','Estoque Atual','Estoque Maximo','Cobertura Atual (dias)','Kanban Atual','Kanban Futuro'];
   const rows = filtered.map(r => [r.produto, r.codigo, r.local, r.categoria, r.marca, r.estoqueAtual, r.estoqueMaximo, r.coberturaAtual, r.kanbanAtual, r.kanbanFuturo]);
@@ -607,62 +616,91 @@ function applyAndRender(){
   highlightActiveKpi();
 }
 
-// ---------- init ----------
+// ---------- PROCESSADOR DE CSV ----------
+// Normaliza os cabeçalhos do CSV para que independentemente de como estejam escritos no Excel,
+// o JavaScript saiba exatamente onde colocar cada valor.
+function normalizeHeaderName(h) {
+  let norm = h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+  if (norm.includes('produto') || norm.includes('sku')) return 'produto';
+  if (norm.includes('codigo') || norm.includes('cod')) return 'codigo';
+  if (norm.includes('local') || norm.includes('armazem')) return 'local';
+  if (norm.includes('categoria') || norm.includes('familia')) return 'categoria';
+  if (norm.includes('marca')) return 'marca';
+  if (norm.includes('estoque atual') || norm.includes('qtde atual')) return 'estoqueAtual';
+  if (norm.includes('estoque maximo') || norm.includes('qtde maxima') || norm === 'maximo') return 'estoqueMaximo';
+  if (norm.includes('cobertura atual') || norm === 'cobertura') return 'coberturaAtual';
+  if (norm.includes('kanban atual') || norm === 'status atual' || norm === 'kanban') return 'kanbanAtual';
+  if (norm.includes('kanban futuro') || norm === 'status futuro') return 'kanbanFuturo';
+  if (norm.includes('seguranca') || norm === 'estoque minimo') return 'estoqueSeguranca';
+  if (norm.includes('reposicao') || norm.includes('ponto')) return 'pontoReposicao';
+  if (norm.includes('planejada') || norm.includes('futura')) return 'coberturaPlanejada';
+  return h; // fallback
+}
+
+function processCSVData(csvString) {
+  Papa.parse(csvString, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: function(h) {
+      return normalizeHeaderName(h);
+    },
+    complete: function(results) {
+      RAW_DATA = results.data;
+      document.getElementById('lastUpdate').innerHTML = `
+        <span style="width:8px;height:8px;border-radius:50%;background:#2dd4a7;display:inline-block;"></span>
+        Base carregada &nbsp;&middot;&nbsp; ${RAW_DATA.length} itens monitorados
+      `;
+      document.getElementById('filePickerContainer').style.display = 'none';
+      renderKpis();
+      buildFilters();
+      applyAndRender();
+    },
+    error: function(err) {
+      console.error(err);
+      showError("Erro ao processar dados do CSV.");
+    }
+  });
+}
+
+function showError(msg) {
+  document.getElementById('lastUpdate').innerHTML = `<span style="color:#ef6f6f; font-weight:bold;">${msg}</span>`;
+  document.getElementById('filePickerContainer').style.display = 'flex';
+}
+
+// Input para carregar arquivo manualmente caso fetch falhe
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    processCSVData(event.target.result);
+  };
+  reader.readAsText(file);
+});
+
+// ---------- INIT ----------
 async function loadData() {
   try {
-    const response = await fetch('base_kamban.csv');
-    if (!response.ok) throw new Error('Falha HTTP: ' + response.status);
-    const csvText = await response.text();
-    RAW_DATA = parseCSV(csvText);
-
-    document.getElementById('lastUpdate').innerHTML = `
-      <span style="width:8px;height:8px;border-radius:50%;background:#2dd4a7;display:inline-block;"></span>
-      Base atualizada &nbsp;&middot;&nbsp; ${RAW_DATA.length} itens monitorados
-    `;
-
-    renderKpis();
-    buildFilters();
-    applyAndRender();
-  } catch (error) {
-    console.error('Erro ao carregar CSV:', error);
-    document.getElementById('lastUpdate').innerHTML = `<span style="color:#ef6f6f">Erro ao carregar base_kamban.csv</span>`;
-  }
-}
-
-function parseCSV(str) {
-  const firstLine = str.split('\n')[0] || '';
-  const delimiter = firstLine.includes(';') ? ';' : ',';
-  const arr = [];
-  let quote = false;
-  let col = 0, row = 0;
-  for (let c = 0; c < str.length; c++) {
-    let cc = str[c], nc = str[c+1];
-    arr[row] = arr[row] || [];
-    arr[row][col] = arr[row][col] || '';
-    if (cc === '"' && quote && nc === '"') { arr[row][col] += cc; ++c; continue; }
-    if (cc === '"') { quote = !quote; continue; }
-    if (cc === delimiter && !quote) { ++col; continue; }
-    if (cc === '\r' && nc === '\n' && !quote) { ++row; col = 0; ++c; continue; }
-    if (cc === '\n' && !quote) { ++row; col = 0; continue; }
-    if (cc === '\r' && !quote) { ++row; col = 0; continue; }
-    arr[row][col] += cc;
-  }
-  if (arr.length < 1) return [];
-  const headers = arr[0].map(h => h.trim());
-  const data = [];
-  for (let i = 1; i < arr.length; i++) {
-    if (arr[i].length === 1 && arr[i][0].trim() === '') continue;
-    const obj = {};
-    for (let j = 0; j < headers.length; j++) {
-      let val = arr[i][j] ? arr[i][j].trim() : '';
-      if (val !== '' && !isNaN(val)) val = Number(val);
-      obj[headers[j]] = val;
+    // 1. Tenta carregar o base_kamban.csv original ou o nome que o usuário relatou
+    let response = await fetch('base_kamban_2.csv');
+    
+    // Fallback caso o nome seja base_kamban.csv
+    if (!response.ok) {
+        response = await fetch('base_kamban.csv');
     }
-    data.push(obj);
+
+    if (!response.ok) throw new Error('Falha HTTP: ' + response.status);
+    
+    const csvText = await response.text();
+    processCSVData(csvText);
+    
+  } catch (error) {
+    console.warn('Requisição Fetch falhou. Motivos prováveis: bloqueio de CORS (abriu arquivo local direto) ou arquivo CSV não encontrado no mesmo diretório.', error);
+    showError("Erro: Não foi possível ler o CSV automático.");
   }
-  return data;
 }
 
+// Iniciar
 loadData();
 </script>
 </body>
