@@ -25,6 +25,7 @@
   }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Adicionando PapaParse para leitura robusta de CSV -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   @keyframes float { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(30px,-40px) scale(1.08);} 66%{transform:translate(-20px,25px) scale(0.95);} }
@@ -88,6 +89,7 @@
   .nav-pill:hover{ background: rgba(255,255,255,.08); color:#f2f2f5; }
   .nav-pill.active{ color:#0a0a0f; background:#2dd4a7; border-color:#2dd4a7; }
 
+  /* Elementos de fallback */
   #filePickerContainer { display: none; }
   .btn-primary { background: #2dd4a7; color: #0a0a0f; font-weight: 600; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: opacity 0.2s; border: none; }
   .btn-primary:hover { opacity: 0.9; }
@@ -112,6 +114,7 @@
   </div>
   
   <div class="flex items-center gap-3">
+    <!-- Container de fallback para selecionar o arquivo manualmente -->
     <div id="filePickerContainer" class="flex items-center gap-2 bg-[#14141c] border border-dashed border-[#ef6f6f] px-4 py-2 rounded-xl">
       <span class="text-xs text-[#ef6f6f] font-medium mr-2">Erro de leitura. Selecione o CSV:</span>
       <input type="file" id="csvFileInput" accept=".csv" class="hidden">
@@ -237,17 +240,19 @@ const ITEMS_PER_PAGE = 25;
 let filtered = [];
 let charts = {};
 
+// ---------- helpers ----------
 const fmtInt = v => Math.round(Number(v)||0).toLocaleString('pt-BR');
 const fmtDec = (v, d=1) => Number(v||0).toLocaleString('pt-BR', { minimumFractionDigits:d, maximumFractionDigits:d });
 
 function uniqueValues(key){
-  return [...new Set(RAW_DATA.map(r => (r[key] === null || r[key] === undefined || String(r[key]).trim() === '') ? '(Não informado)' : r[key]))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return [...new Set(RAW_DATA.map(r => (r[key] === null || r[key] === undefined || String(r[key]).trim() === '') ? '(Não informado)' : r[key])))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
 }
 function normKey(r, key){
   const v = r[key];
   return (v === null || v === undefined || String(v).trim() === '') ? '(Não informado)' : v;
 }
 
+// ---------- KPI cards ----------
 function computeKpis(list){
   const total = list.length;
   const counts = {};
@@ -287,6 +292,7 @@ function renderKpis(){
         state.filters.kanbanAtual.clear();
       } else {
         const set = state.filters.kanbanAtual;
+        // Check exact match (ignoring case for logic, but stored as-is in options)
         const exactMatch = uniqueValues('kanbanAtual').find(v => v.toUpperCase() === key);
         if(exactMatch) {
             if (set.has(exactMatch) && set.size === 1) set.clear();
@@ -300,17 +306,18 @@ function renderKpis(){
   });
   highlightActiveKpi();
 }
-
 function highlightActiveKpi(){
   const active = state.filters.kanbanAtual;
   document.querySelectorAll('[data-kpi]').forEach(el => {
     const key = el.dataset.kpi;
+    // Check if any of the active sets match this key when uppercased
     const isActiveMatch = Array.from(active).some(v => v.toUpperCase() === key);
     const isActive = (key === '__all__' && active.size === 0) || (active.size > 0 && isActiveMatch);
     el.classList.toggle('active', isActive);
   });
 }
 
+// ---------- filters (multiselect) ----------
 function buildFilters(){
   const host = document.getElementById('filtersHost');
   host.innerHTML = '';
@@ -386,13 +393,11 @@ function buildFilters(){
     });
   });
 }
-
 function closeAllPanels(){
   document.querySelectorAll('.ms-panel').forEach(p => p.classList.add('hidden'));
   document.querySelectorAll('.ms-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('[data-ms-wrapper]').forEach(w => w.classList.remove('ms-active'));
 }
-
 function syncMultiselectUI(key){
   const set = state.filters[key];
   const label = document.querySelector(`[data-ms-label="${key}"]`);
@@ -441,7 +446,6 @@ function levelBarHtml(r){
     <div class="text-[10px] text-[#63637a] mt-1 font-mono">${r.estoqueMaximo ? (((Number(r.estoqueAtual)||0)/(Number(r.estoqueMaximo)||1))*100).toFixed(0) : '0'}% do máx.${overflow ? ' · acima do máx.' : ''}</div>
   `;
 }
-
 function badgeHtml(value){
   const m = kanbanMeta(value);
   return `<span class="badge" style="background:${m.color}22; color:${m.color};"><span class="bdot" style="background:${m.color}"></span>${m.label}</span>`;
@@ -612,8 +616,11 @@ function applyAndRender(){
   highlightActiveKpi();
 }
 
+// ---------- PROCESSADOR DE CSV ----------
+// Normaliza os cabeçalhos do CSV para que independentemente de como estejam escritos no Excel,
+// o JavaScript saiba exatamente onde colocar cada valor.
 function normalizeHeaderName(h) {
-  let norm = h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  let norm = h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
   if (norm.includes('produto') || norm.includes('sku')) return 'produto';
   if (norm.includes('codigo') || norm.includes('cod')) return 'codigo';
   if (norm.includes('local') || norm.includes('armazem')) return 'local';
@@ -627,7 +634,7 @@ function normalizeHeaderName(h) {
   if (norm.includes('seguranca') || norm === 'estoque minimo') return 'estoqueSeguranca';
   if (norm.includes('reposicao') || norm.includes('ponto')) return 'pontoReposicao';
   if (norm.includes('planejada') || norm.includes('futura')) return 'coberturaPlanejada';
-  return h;
+  return h; // fallback
 }
 
 function processCSVData(csvString) {
@@ -660,6 +667,7 @@ function showError(msg) {
   document.getElementById('filePickerContainer').style.display = 'flex';
 }
 
+// Input para carregar arquivo manualmente caso fetch falhe
 document.getElementById('csvFileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -670,18 +678,24 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
   reader.readAsText(file);
 });
 
+// ---------- INIT ----------
 async function loadData() {
   try {
+    // Busca o arquivo base_kamban.csv ignorando o cache do navegador
     const response = await fetch('base_kamban.csv?t=' + new Date().getTime());
+    
     if (!response.ok) throw new Error('Falha HTTP: ' + response.status);
+    
     const csvText = await response.text();
     processCSVData(csvText);
+    
   } catch (error) {
     console.warn('Requisição Fetch falhou.', error);
     showError("Erro: Não foi possível ler o CSV automático.");
   }
 }
 
+// Iniciar
 loadData();
 </script>
 </body>
