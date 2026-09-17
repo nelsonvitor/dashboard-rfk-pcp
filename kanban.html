@@ -681,21 +681,41 @@ document.getElementById('csvFileInput').addEventListener('change', function(e) {
 // ---------- INIT ----------
 async function loadData() {
   try {
-    // 1. Tenta carregar o base_kamban.csv original ou o nome que o usuário relatou
-    let response = await fetch('base_kamban_2.csv');
+    // Array com possíveis nomes do CSV para o script tentar carregar
+    const possibleFiles = [
+      'base_kamban_3.csv',
+      'base_kamban_2.csv',
+      'base_kamban.csv'
+    ];
     
-    // Fallback caso o nome seja base_kamban.csv
-    if (!response.ok) {
-        response = await fetch('base_kamban.csv');
+    let csvText = null;
+    
+    // Tenta carregar cada arquivo da lista sequencialmente
+    for (const fileName of possibleFiles) {
+      try {
+        // Usa timestamp na URL para evitar cache (forçar o navegador a pegar a versão mais recente do GitHub)
+        const cacheBuster = '?t=' + new Date().getTime();
+        const response = await fetch(fileName + cacheBuster);
+        
+        if (response.ok) {
+          csvText = await response.text();
+          console.log(`Sucesso ao carregar: ${fileName}`);
+          break; // Sai do loop se encontrar o arquivo
+        }
+      } catch (e) {
+        // Ignora o erro e tenta o próximo arquivo
+        console.log(`Tentativa falhou para: ${fileName}`);
+      }
     }
-
-    if (!response.ok) throw new Error('Falha HTTP: ' + response.status);
     
-    const csvText = await response.text();
-    processCSVData(csvText);
+    if (csvText) {
+      processCSVData(csvText);
+    } else {
+      throw new Error("Nenhum dos arquivos CSV foi encontrado.");
+    }
     
   } catch (error) {
-    console.warn('Requisição Fetch falhou. Motivos prováveis: bloqueio de CORS (abriu arquivo local direto) ou arquivo CSV não encontrado no mesmo diretório.', error);
+    console.warn('Requisição Fetch falhou.', error);
     showError("Erro: Não foi possível ler o CSV automático.");
   }
 }
