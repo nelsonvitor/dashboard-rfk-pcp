@@ -134,17 +134,27 @@
 
 <section class="card p-5 mb-6 fade-up" style="animation-delay:.1s">
   <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-    <p class="text-xs font-bold text-[#a8a8b8] uppercase tracking-wider">Nível de Estoque por Produto (% do Estoque Máximo)</p>
+    <p class="text-xs font-bold text-[#a8a8b8] uppercase tracking-wider">Nível de Estoque por Produto (Cobertura Atual x Futura)</p>
     <div class="flex items-center gap-3 text-[11px] text-[#a8a8b8]">
-      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#ef6f6f;display:inline-block;"></span>1–33%</span>
-      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#f5c94b;display:inline-block;"></span>34–66%</span>
-      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#2dd4a7;display:inline-block;"></span>67–100%</span>
-      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#5b8def;display:inline-block;"></span>Acima de 100%</span>
+      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#ef6f6f;display:inline-block;"></span>Vermelho</span>
+      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#f5c94b;display:inline-block;"></span>Amarelo</span>
+      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#2dd4a7;display:inline-block;"></span>Verde</span>
+      <span class="flex items-center gap-1.5"><span style="width:8px;height:8px;border-radius:50%;background:#5b8def;display:inline-block;"></span>Acima do Máximo</span>
     </div>
   </div>
-  <p class="text-[11px] text-[#63637a] mb-3">Nível calculado como Estoque Atual ÷ Estoque Máximo. Cada produto mostra os 4 níveis possíveis; o segmento em destaque é a faixa em que ele está hoje.</p>
+  <p class="text-[11px] text-[#63637a] mb-1">Um produto por linha (pior local considerado quando há mais de um). Comprimento em dias, cor conforme o status.</p>
+  <div class="flex items-center text-[10px] font-bold text-[#63637a] uppercase tracking-wider mb-1">
+    <div class="flex-1 text-right pr-1">← Cobertura Atual</div>
+    <div class="w-[180px] shrink-0"></div>
+    <div class="flex-1 pl-1">Cobertura Futura →</div>
+  </div>
+  <div class="flex items-center text-[9px] font-mono text-[#63637a] mb-2">
+    <div class="flex-1 flex justify-between pr-1"><span>30d</span><span>15d</span><span>0</span></div>
+    <div class="w-[180px] shrink-0"></div>
+    <div class="flex-1 flex justify-between pl-1"><span>0</span><span>15d</span><span>30d</span></div>
+  </div>
   <div class="h-64 overflow-y-auto">
-    <div id="productChartWrap"><canvas id="chartProductLevels"></canvas></div>
+    <div id="productChartWrap"></div>
   </div>
 </section>
 
@@ -481,69 +491,54 @@ function fadedColor(hex){
   return `rgba(${r},${g},${b},0.12)`;
 }
 
-function calcNivel(estoqueAtual, estoqueMaximo){
-  // Divide o Estoque Máximo em 3 faixas: 1-33% vermelho, 34-66% amarelo, 67-100% verde, acima de 100% azul
-  if (estoqueMaximo <= 0) return estoqueAtual > 0 ? 'ACIMA MAX' : 'VERMELHO';
-  const pct = (estoqueAtual / estoqueMaximo) * 100;
-  if (pct > 100) return 'ACIMA MAX';
-  if (pct > 66) return 'VERDE';
-  if (pct > 33) return 'AMARELO';
-  return 'VERMELHO';
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function getProductLevels(){
-  // Agrupa por descrição do produto dentro do conjunto já filtrado; usa o nível mais crítico entre os locais restantes
+  // Agrupa por descrição do produto dentro do conjunto já filtrado; usa a linha com o Kanban Atual mais crítico entre os locais restantes
   const map = new Map();
   filtered.forEach(r => {
-    const nivel = calcNivel(r.estoqueAtual, r.estoqueMaximo);
+    const sevAtual = SEVERITY[r.kanbanAtual] ?? 0;
     const cur = map.get(r.produto);
-    if (!cur || SEVERITY[nivel] > SEVERITY[cur]) map.set(r.produto, nivel);
+    if (!cur || sevAtual > (SEVERITY[cur.kanbanAtual] ?? 0)) map.set(r.produto, r);
   });
-  return [...map.entries()]
-    .map(([produto, nivel]) => ({ produto, nivel }))
-    .sort((a, b) => SEVERITY[b.nivel] - SEVERITY[a.nivel] || a.produto.localeCompare(b.produto, 'pt-BR'));
+  return [...map.values()]
+    .sort((a, b) => (SEVERITY[b.kanbanAtual] ?? 0) - (SEVERITY[a.kanbanAtual] ?? 0) || a.produto.localeCompare(b.produto, 'pt-BR'));
 }
 
 function renderProductLevelsChart(){
   const products = getProductLevels();
-  const rowHeight = 15;
-  const canvas = document.getElementById('chartProductLevels');
-  canvas.parentElement.style.height = `${Math.max(products.length * rowHeight, 256)}px`;
+  const host = document.getElementById('productChartWrap');
+  charts.productLevels = null;
 
-  if (charts.productLevels) charts.productLevels.destroy();
-  charts.productLevels = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: products.map(p => p.produto.trim().toUpperCase()),
-      datasets: SEGMENT_ORDER.map(k => ({
-        label: KANBAN_META[k].label,
-        data: products.map(() => 1),
-        backgroundColor: products.map(p => p.nivel === k ? KANBAN_META[k].color : fadedColor(KANBAN_META[k].color)),
-        borderRadius: 3,
-        borderSkipped: false,
-      }))
-    },
-    options: {
-      indexAxis: 'y',
-      responsive:true, maintainAspectRatio:false,
-      barPercentage: 0.9,
-      categoryPercentage: 0.9,
-      scales: {
-        x:{ stacked:true, display:false, min:0, max:4 },
-        y:{ stacked:true, ticks:{ color:'#f2f2f5', font:{ size:13, weight:'700' } }, grid:{ display:false } }
-      },
-      plugins:{
-        legend:{ display:false },
-        tooltip:{
-          callbacks:{
-            title: (items) => items[0].label,
-            label: (item) => `Nível atual: ${products[item.dataIndex] ? KANBAN_META[products[item.dataIndex].nivel].label : ''}`,
-          },
-          filter: (item) => products[item.dataIndex] && products[item.dataIndex].nivel === SEGMENT_ORDER[item.datasetIndex],
-        }
-      }
-    }
-  });
+  if (!products.length){
+    host.innerHTML = `<p class="text-xs text-[#63637a] py-6 text-center">Nenhum produto para os filtros selecionados.</p>`;
+    return;
+  }
+
+  const maxVal = 30; // escala fixa: dias do mês
+
+  host.innerHTML = products.map(p => {
+    const mA = kanbanMeta(p.kanbanAtual);
+    const mF = kanbanMeta(p.kanbanFuturo);
+    const pctA = Math.min(100, Math.max(2, (p.coberturaAtual / maxVal) * 100));
+    const pctF = Math.min(100, Math.max(2, (p.coberturaPlanejada / maxVal) * 100));
+    const tipA = `Cobertura Atual: ${fmtDec(p.coberturaAtual, 1)}d · ${mA.label}`;
+    const tipF = `Cobertura Futura: ${fmtDec(p.coberturaPlanejada, 1)}d · ${mF.label}`;
+    return `
+      <div class="flex items-center py-1.5 border-b border-[rgba(255,255,255,0.04)] last:border-0">
+        <div class="flex-1 flex items-center justify-end gap-1.5" title="${escapeHtml(tipA)}">
+          <span class="text-[10px] font-mono text-[#a8a8b8] whitespace-nowrap">${fmtDec(p.coberturaAtual, 1)}d</span>
+          <div style="width:${pctA}%;height:12px;border-radius:3px 0 0 3px;background:${mA.color};min-width:3px;"></div>
+        </div>
+        <div class="w-[180px] shrink-0 text-center px-2 text-[11px] font-semibold text-[#f2f2f5] truncate" title="${escapeHtml(p.produto.trim())}">${escapeHtml(p.produto.trim().toUpperCase())}</div>
+        <div class="flex-1 flex items-center gap-1.5" title="${escapeHtml(tipF)}">
+          <div style="width:${pctF}%;height:12px;border-radius:0 3px 3px 0;background:${mF.color};min-width:3px;"></div>
+          <span class="text-[10px] font-mono text-[#a8a8b8] whitespace-nowrap">${fmtDec(p.coberturaPlanejada, 1)}d</span>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function renderCharts(){
