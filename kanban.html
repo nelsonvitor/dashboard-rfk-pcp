@@ -44,18 +44,18 @@
   ::-webkit-scrollbar-thumb{ background:#2a2a35; border-radius:4px; }
   ::-webkit-scrollbar-thumb:hover{ background:#3a3a48; }
 
-  .search-input{ background-color:#0a0a0f; border:1px solid rgba(255,255,255,.07); color:#f2f2f5; padding:6px 10px; border-radius:8px; font-size:12px; outline:none; transition:border-color .2s; width:190px; }
+  .search-input{ background-color:#0a0a0f; border:1px solid rgba(255,255,255,.07); color:#f2f2f5; padding:6px 10px; border-radius:8px; font-size:12px; outline:none; transition:border-color .2s; width:150px; }
   .search-input:focus{ border-color:#2dd4a7; }
 
-  .filter-field{ display:flex; align-items:center; gap:6px; }
-  .filter-field > label{ font-size:11px; font-weight:600; color:#63637a; text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+  .filter-field{ display:flex; align-items:center; gap:5px; }
+  .filter-field > label{ font-size:10.5px; font-weight:600; color:#63637a; text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; }
 
-  .ms-btn{ width:auto; min-width:110px; background-color:#0a0a0f; border:1px solid rgba(255,255,255,.07); color:#f2f2f5; font-size:12px; border-radius:8px; padding:6px 9px; display:flex; align-items:center; justify-content:space-between; gap:6px; outline:none; transition:border-color .2s, box-shadow .2s; cursor:pointer; }
+  .ms-btn{ width:auto; min-width:78px; background-color:#0a0a0f; border:1px solid rgba(255,255,255,.07); color:#f2f2f5; font-size:11.5px; border-radius:8px; padding:6px 8px; display:flex; align-items:center; justify-content:space-between; gap:5px; outline:none; transition:border-color .2s, box-shadow .2s; cursor:pointer; }
   .ms-btn:hover{ border-color: rgba(255,255,255,.18); }
   .ms-btn.active{ border-color:#2dd4a7; box-shadow:0 0 0 3px rgba(45,212,167,.12); }
   .ms-btn svg{ flex-shrink:0; transition: transform .2s ease; color:#63637a; }
   .ms-btn.active svg{ transform: rotate(180deg); color:#2dd4a7; }
-  .ms-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; min-width:0; max-width:120px; }
+  .ms-label{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; min-width:0; max-width:90px; }
   [data-ms-wrapper]{ position:relative; z-index:1; }
   [data-ms-wrapper].ms-active{ z-index:100; }
   .ms-panel{ position:absolute; top:calc(100% + 8px); left:0; z-index:100; width:100%; min-width:210px; background-color:#14141c; border:1px solid rgba(255,255,255,.08); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.45); padding:10px; animation: msPop .15s ease; }
@@ -127,17 +127,17 @@
 
 <section id="kpiRow" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 fade-up" style="animation-delay:.02s"></section>
 
-<section class="card px-4 py-2.5 mb-6 flex flex-wrap gap-x-3 gap-y-2 items-center sticky top-4 z-40 fade-up" style="animation-delay:.04s">
-  <div class="flex items-center gap-1.5 relative">
+<section class="card px-4 py-2.5 mb-6 flex flex-nowrap gap-x-2 items-center sticky top-4 z-40 fade-up" style="animation-delay:.04s">
+  <div class="flex items-center gap-1.5 relative shrink-0">
     <svg class="text-[#63637a] flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
     <input id="searchInput" type="text" class="search-input" placeholder="Buscar produto, código ou marca...">
   </div>
-  <div id="filtersHost" class="flex flex-1 flex-wrap gap-x-3 gap-y-2 items-center"></div>
-  <button id="btnReset" class="btn-ghost">Limpar</button>
-  <button id="btnExport" class="btn-ghost">Exportar CSV</button>
+  <div id="filtersHost" class="flex flex-nowrap gap-x-2 items-center shrink-0"></div>
+  <button id="btnReset" class="btn-ghost shrink-0">Limpar</button>
+  <button id="btnExport" class="btn-ghost shrink-0">Exportar CSV</button>
 </section>
 
-<section class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-6">
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
   <div class="card p-5 fade-up" style="animation-delay:.06s">
     <p class="text-xs font-bold text-[#a8a8b8] uppercase tracking-wider mb-3">Kanban Atual por Local</p>
     <div class="h-64"><canvas id="chartLocalAtual"></canvas></div>
@@ -145,6 +145,10 @@
   <div class="card p-5 fade-up" style="animation-delay:.08s">
     <p class="text-xs font-bold text-[#a8a8b8] uppercase tracking-wider mb-3">Kanban Futuro por Local</p>
     <div class="h-64"><canvas id="chartLocalFuturo"></canvas></div>
+  </div>
+  <div class="card p-5 fade-up" style="animation-delay:.1s">
+    <p class="text-xs font-bold text-[#a8a8b8] uppercase tracking-wider mb-3">Kanban Atual por Curva ABC</p>
+    <div class="h-64"><canvas id="chartCurvaAbc"></canvas></div>
   </div>
 </section>
 
@@ -575,18 +579,19 @@ function renderCharts(){
   renderProductLevelsChart();
 
   const locais = [...new Set(filtered.map(r => r.local))].sort();
+  const curvas = [...new Set(filtered.map(r => normKey(r, 'curvaAbc')))].sort((a,b) => String(a).localeCompare(String(b), 'pt-BR'));
   const statusKeys = Object.keys(KANBAN_META);
 
-  function renderLocalBarChart(canvasId, chartRefKey, field){
+  function renderStackedBarChart(canvasId, chartRefKey, groups, groupField, statusField){
     const ctx = document.getElementById(canvasId);
     if (charts[chartRefKey]) charts[chartRefKey].destroy();
     charts[chartRefKey] = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: locais,
+        labels: groups,
         datasets: statusKeys.map(k => ({
           label: KANBAN_META[k].label,
-          data: locais.map(loc => filtered.filter(r => r.local === loc && String(r[field]).trim().toUpperCase() === k).length),
+          data: groups.map(g => filtered.filter(r => normKey(r, groupField) === g && String(r[statusField]).trim().toUpperCase() === k).length),
           backgroundColor: KANBAN_META[k].color,
           borderRadius: 4,
         }))
@@ -599,8 +604,9 @@ function renderCharts(){
     });
   }
 
-  renderLocalBarChart('chartLocalAtual', 'localAtual', 'kanbanAtual');
-  renderLocalBarChart('chartLocalFuturo', 'localFuturo', 'kanbanFuturo');
+  renderStackedBarChart('chartLocalAtual', 'localAtual', locais, 'local', 'kanbanAtual');
+  renderStackedBarChart('chartLocalFuturo', 'localFuturo', locais, 'local', 'kanbanFuturo');
+  renderStackedBarChart('chartCurvaAbc', 'curvaAbc', curvas, 'curvaAbc', 'kanbanAtual');
 }
 
 document.getElementById('btnExport').addEventListener('click', () => {
