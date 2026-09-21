@@ -78,6 +78,18 @@ body{
   padding:40px 32px 60px;
 }
 
+/* NAVEGAÇÃO ENTRE RELATÓRIOS */
+.nav-tabs{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:20px; animation:fadeUp 0.6s ease both;}
+.nav-pill{
+  padding:8px 16px; border-radius:10px; font-size:13px; font-weight:600;
+  text-decoration:none; color:#a8a8b8; background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.07); transition:background-color .2s, color .2s, border-color .2s;
+  white-space:nowrap;
+}
+.nav-pill:hover{background:rgba(255,255,255,0.08); color:#f2f2f5;}
+.nav-pill.active{color:#0a0a0f; background:#2dd4a7; border-color:#2dd4a7;}
+.nav-pill:focus-visible{outline:2px solid var(--green); outline-offset:2px;}
+
 /* HEADER */
 .hdr{
   display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:20px;
@@ -370,6 +382,12 @@ tfoot td:first-child{font-family:var(--font-display); font-weight:600;}
 </div>
 
 <div class="wrap">
+
+  <nav class="nav-tabs" aria-label="Relatórios">
+    <a href="index.html" class="nav-pill">CURVA ABC - INSUMOS</a>
+    <a href="kanban.html" class="nav-pill">KANBAN DE ESTOQUE</a>
+    <a href="aderencia.html" class="nav-pill active" aria-current="page">ADERÊNCIA DE PRODUÇÃO</a>
+  </nav>
 
   <header class="hdr">
     <div class="hdr-left">
